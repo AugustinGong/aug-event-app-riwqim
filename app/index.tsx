@@ -1,6 +1,6 @@
 
 import React, { useEffect } from 'react';
-import { View } from 'react-native';
+import { View, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Redirect } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
 import { commonStyles } from '../styles/commonStyles';
@@ -26,9 +26,20 @@ export default function IndexScreen() {
 
   return (
     <SafeAreaView style={commonStyles.container}>
-      <View style={commonStyles.centerContent}>
-        <AuthForm onSuccess={() => {}} />
-      </View>
+      <KeyboardAvoidingView 
+        style={commonStyles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <ScrollView 
+          contentContainerStyle={commonStyles.centerContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          <AuthForm onSuccess={() => {}} />
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

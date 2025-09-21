@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { commonStyles, colors, buttonStyles } from '../styles/commonStyles';
 import { useAuth } from '../hooks/useAuth';
 import Icon from './Icon';
@@ -24,6 +24,8 @@ export default function AuthForm({ onSuccess }: AuthFormProps) {
       return;
     }
 
+    // Dismiss keyboard before processing
+    Keyboard.dismiss();
     setIsLoading(true);
     
     try {
@@ -47,63 +49,82 @@ export default function AuthForm({ onSuccess }: AuthFormProps) {
     }
   };
 
-  return (
-    <View style={commonStyles.card}>
-      <View style={{ alignItems: 'center', marginBottom: 24 }}>
-        <Icon name="people-circle" size={64} color={colors.primary} />
-        <Text style={commonStyles.title}>
-          {isLogin ? 'Welcome Back' : 'Join AUG-Event'}
-        </Text>
-        <Text style={commonStyles.textSecondary}>
-          {isLogin ? 'Sign in to your account' : 'Create your account'}
-        </Text>
-      </View>
+  const dismissKeyboard = () => {
+    Keyboard.dismiss();
+  };
 
-      {!isLogin && (
+  return (
+    <TouchableWithoutFeedback onPress={dismissKeyboard}>
+      <View style={[commonStyles.card, { width: '100%', maxWidth: 400 }]}>
+        <View style={{ alignItems: 'center', marginBottom: 24 }}>
+          <Icon name="people-circle" size={64} color={colors.primary} />
+          <Text style={commonStyles.title}>
+            {isLogin ? 'Welcome Back' : 'Join AUG-Event'}
+          </Text>
+          <Text style={commonStyles.textSecondary}>
+            {isLogin ? 'Sign in to your account' : 'Create your account'}
+          </Text>
+        </View>
+
+        {!isLogin && (
+          <TextInput
+            style={commonStyles.input}
+            placeholder="Full Name"
+            value={name}
+            onChangeText={setName}
+            autoCapitalize="words"
+            returnKeyType="next"
+            blurOnSubmit={false}
+          />
+        )}
+
         <TextInput
           style={commonStyles.input}
-          placeholder="Full Name"
-          value={name}
-          onChangeText={setName}
-          autoCapitalize="words"
+          placeholder="Email"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          returnKeyType="next"
+          blurOnSubmit={false}
         />
-      )}
 
-      <TextInput
-        style={commonStyles.input}
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
+        <TextInput
+          style={commonStyles.input}
+          placeholder="Password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          returnKeyType="done"
+          onSubmitEditing={handleSubmit}
+        />
 
-      <TextInput
-        style={commonStyles.input}
-        placeholder="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
+        <TouchableOpacity
+          style={[buttonStyles.primary, { marginBottom: 16 }]}
+          onPress={handleSubmit}
+          disabled={isLoading}
+        >
+          <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>
+            {isLoading ? 'Loading...' : (isLogin ? 'Sign In' : 'Sign Up')}
+          </Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        style={[buttonStyles.primary, { marginBottom: 16 }]}
-        onPress={handleSubmit}
-        disabled={isLoading}
-      >
-        <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>
-          {isLoading ? 'Loading...' : (isLogin ? 'Sign In' : 'Sign Up')}
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        onPress={() => setIsLogin(!isLogin)}
-        style={{ alignItems: 'center' }}
-      >
-        <Text style={[commonStyles.textSecondary, { textDecorationLine: 'underline' }]}>
-          {isLogin ? 'Need an account? Sign up' : 'Already have an account? Sign in'}
-        </Text>
-      </TouchableOpacity>
-    </View>
+        <TouchableOpacity
+          onPress={() => {
+            setIsLogin(!isLogin);
+            // Clear form when switching modes
+            setEmail('');
+            setPassword('');
+            setName('');
+            Keyboard.dismiss();
+          }}
+          style={{ alignItems: 'center' }}
+        >
+          <Text style={[commonStyles.textSecondary, { textDecorationLine: 'underline' }]}>
+            {isLogin ? 'Need an account? Sign up' : 'Already have an account? Sign in'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </TouchableWithoutFeedback>
   );
 }

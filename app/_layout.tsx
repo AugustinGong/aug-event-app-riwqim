@@ -1,59 +1,84 @@
-import { Stack, useGlobalSearchParams } from 'expo-router';
-import { SafeAreaProvider, useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
-import { Platform } from 'react-native';
-import { useEffect, useState } from 'react';
-import { setupErrorLogging } from '../utils/errorLogger';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-const STORAGE_KEY = 'emulated_device';
+import React, { useEffect, useState } from 'react';
+import { Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { View, Text } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useAuth } from '../hooks/useAuth';
+import { commonStyles, colors } from '../styles/commonStyles';
+import FirebaseSetup from '../components/FirebaseSetup';
 
 export default function RootLayout() {
-  const actualInsets = useSafeAreaInsets();
-  const { emulate } = useGlobalSearchParams<{ emulate?: string }>();
-  const [storedEmulate, setStoredEmulate] = useState<string | null>(null);
+  const { isLoading } = useAuth();
+  const [showFirebaseSetup, setShowFirebaseSetup] = useState(false);
 
   useEffect(() => {
-    // Set up global error logging
-    setupErrorLogging();
-
-    if (Platform.OS === 'web') {
-      // If there's a new emulate parameter, store it
-      if (emulate) {
-        localStorage.setItem(STORAGE_KEY, emulate);
-        setStoredEmulate(emulate);
-      } else {
-        // If no emulate parameter, try to get from localStorage
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) {
-          setStoredEmulate(stored);
+    // Check if Firebase is properly configured
+    const checkFirebaseConfig = () => {
+      try {
+        // This is a simple check - in a real app you might want to test actual Firebase connectivity
+        const config = require('../config/firebase');
+        
+        // Check if the default config values are still present
+        if (config.auth && config.db && config.storage) {
+          console.log('Firebase configuration detected');
+          setShowFirebaseSetup(false);
+        } else {
+          console.log('Firebase configuration incomplete');
+          setShowFirebaseSetup(true);
         }
+      } catch (error) {
+        console.log('Firebase configuration error:', error);
+        setShowFirebaseSetup(true);
       }
-    }
-  }, [emulate]);
-
-  let insetsToUse = actualInsets;
-
-  if (Platform.OS === 'web') {
-    const simulatedInsets = {
-      ios: { top: 47, bottom: 20, left: 0, right: 0 },
-      android: { top: 40, bottom: 0, left: 0, right: 0 },
     };
 
-    // Use stored emulate value if available, otherwise use the current emulate parameter
-    const deviceToEmulate = storedEmulate || emulate;
-    insetsToUse = deviceToEmulate ? simulatedInsets[deviceToEmulate as keyof typeof simulatedInsets] || actualInsets : actualInsets;
+    checkFirebaseConfig();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <SafeAreaProvider>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <View style={[commonStyles.container, commonStyles.centered]}>
+            <Text style={commonStyles.text}>Loading...</Text>
+          </View>
+          <StatusBar style="auto" />
+        </GestureHandlerRootView>
+      </SafeAreaProvider>
+    );
+  }
+
+  // Show Firebase setup if configuration is incomplete
+  if (showFirebaseSetup) {
+    return (
+      <SafeAreaProvider>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <FirebaseSetup />
+          <StatusBar style="auto" />
+        </GestureHandlerRootView>
+      </SafeAreaProvider>
+    );
   }
 
   return (
     <SafeAreaProvider>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              animation: 'default',
-            }}
-          />
-        </GestureHandlerRootView>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: colors.background },
+          }}
+        >
+          <Stack.Screen name="index" />
+          <Stack.Screen name="home" />
+          <Stack.Screen name="create-event" />
+          <Stack.Screen name="scan-qr" />
+          <Stack.Screen name="event/[id]" />
+        </Stack>
+        <StatusBar style="auto" />
+      </GestureHandlerRootView>
     </SafeAreaProvider>
   );
 }

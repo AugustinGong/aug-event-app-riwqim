@@ -1,11 +1,16 @@
 
 import { useState, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as SecureStore from 'expo-secure-store';
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut, 
+  onAuthStateChanged,
+  updateProfile,
+  User as FirebaseUser
+} from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../config/firebase';
 import { User } from '../types';
-
-const AUTH_TOKEN_KEY = 'auth_token';
-const USER_DATA_KEY = 'user_data';
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -13,50 +18,86 @@ export const useAuth = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    checkAuthStatus();
-  }, []);
-
-  const checkAuthStatus = async () => {
-    try {
-      const token = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
-      const userData = await AsyncStorage.getItem(USER_DATA_KEY);
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log('Auth state changed:', firebaseUser?.uid);
       
-      if (token && userData) {
-        const parsedUser = JSON.parse(userData);
-        setUser(parsedUser);
-        setIsAuthenticated(true);
+      if (firebaseUser) {
+        try {
+          // Get user data from Firestore
+          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            const user: User = {
+              id: firebaseUser.uid,
+              email: firebaseUser.email || '',
+              name: userData.name || firebaseUser.displayName || '',
+              avatar: userData.avatar || firebaseUser.photoURL || undefined,
+              createdAt: userData.createdAt?.toDate() || new Date(),
+            };
+            
+            setUser(user);
+            setIsAuthenticated(true);
+          } else {
+            // Create user document if it doesn't exist
+            const newUser: User = {
+              id: firebaseUser.uid,
+              email: firebaseUser.email || '',
+              name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || '',
+              avatar: firebaseUser.photoURL || undefined,
+              createdAt: new Date(),
+            };
+            
+            await setDoc(doc(db, 'users', firebaseUser.uid), {
+              name: newUser.name,
+              email: newUser.email,
+              avatar: newUser.avatar,
+              createdAt: new Date(),
+            });
+            
+            setUser(newUser);
+            setIsAuthenticated(true);
+          }
+        } catch (error) {
+          console.log('Error fetching user data:', error);
+          setUser(null);
+          setIsAuthenticated(false);
+        }
+      } else {
+        setUser(null);
+        setIsAuthenticated(false);
       }
-    } catch (error) {
-      console.log('Error checking auth status:', error);
-    } finally {
+      
       setIsLoading(false);
-    }
-  };
+    });
+
+    return unsubscribe;
+  }, []);
 
   const login = async (email: string, password: string) => {
     try {
       setIsLoading(true);
+      console.log('Attempting login for:', email);
       
-      // Mock authentication - in real app, this would call your backend
-      const mockUser: User = {
-        id: '1',
-        email: email,
-        name: email.split('@')[0],
-        createdAt: new Date(),
-      };
-      
-      const mockToken = 'mock_jwt_token_' + Date.now();
-      
-      await SecureStore.setItemAsync(AUTH_TOKEN_KEY, mockToken);
-      await AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(mockUser));
-      
-      setUser(mockUser);
-      setIsAuthenticated(true);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      console.log('Login successful:', userCredential.user.uid);
       
       return { success: true };
-    } catch (error) {
-      console.log('Login error:', error);
-      return { success: false, error: 'Login failed' };
+    } catch (error: any) {
+      console.log('Login error:', error.message);
+      
+      let errorMessage = 'Login failed';
+      if (error.code === 'auth/user-not-found') {
+        errorMessage = 'No account found with this email';
+      } else if (error.code === 'auth/wrong-password') {
+        errorMessage = 'Incorrect password';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Invalid email address';
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many failed attempts. Please try again later';
+      }
+      
+      return { success: false, error: errorMessage };
     } finally {
       setIsLoading(false);
     }
@@ -65,27 +106,39 @@ export const useAuth = () => {
   const register = async (email: string, password: string, name: string) => {
     try {
       setIsLoading(true);
+      console.log('Attempting registration for:', email);
       
-      // Mock registration - in real app, this would call your backend
-      const mockUser: User = {
-        id: Date.now().toString(),
-        email: email,
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
+      
+      // Update the user's display name
+      await updateProfile(firebaseUser, {
+        displayName: name
+      });
+      
+      // Create user document in Firestore
+      await setDoc(doc(db, 'users', firebaseUser.uid), {
         name: name,
+        email: email,
         createdAt: new Date(),
-      };
+      });
       
-      const mockToken = 'mock_jwt_token_' + Date.now();
-      
-      await SecureStore.setItemAsync(AUTH_TOKEN_KEY, mockToken);
-      await AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(mockUser));
-      
-      setUser(mockUser);
-      setIsAuthenticated(true);
+      console.log('Registration successful:', firebaseUser.uid);
       
       return { success: true };
-    } catch (error) {
-      console.log('Registration error:', error);
-      return { success: false, error: 'Registration failed' };
+    } catch (error: any) {
+      console.log('Registration error:', error.message);
+      
+      let errorMessage = 'Registration failed';
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'An account with this email already exists';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Invalid email address';
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = 'Password should be at least 6 characters';
+      }
+      
+      return { success: false, error: errorMessage };
     } finally {
       setIsLoading(false);
     }
@@ -93,13 +146,12 @@ export const useAuth = () => {
 
   const logout = async () => {
     try {
-      await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
-      await AsyncStorage.removeItem(USER_DATA_KEY);
-      
-      setUser(null);
-      setIsAuthenticated(false);
-    } catch (error) {
-      console.log('Logout error:', error);
+      console.log('Logging out user');
+      await signOut(auth);
+      return { success: true };
+    } catch (error: any) {
+      console.log('Logout error:', error.message);
+      return { success: false, error: 'Logout failed' };
     }
   };
 

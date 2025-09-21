@@ -1,271 +1,337 @@
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { commonStyles, colors, buttonStyles } from '../../styles/commonStyles';
+import { Event } from '../../types';
+import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import Icon from '../../components/Icon';
 import { useAuth } from '../../hooks/useAuth';
 import { useEvents } from '../../hooks/useEvents';
-import { Event } from '../../types';
-import Icon from '../../components/Icon';
+import { useNotifications } from '../../hooks/useNotifications';
+import { commonStyles, colors, buttonStyles } from '../../styles/commonStyles';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import QRCodeGenerator from '../../components/QRCodeGenerator';
+import PhotoGallery from '../../components/PhotoGallery';
 
-const tabs = ['Menu', 'Notifications', 'Album', 'QR Code'] as const;
-type TabType = typeof tabs[number];
+type TabType = 'menu' | 'notifications' | 'album' | 'qr';
 
-export default function EventDetailScreen() {
-  const router = useRouter();
+const EventDetailScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const { user } = useAuth();
-  const { events, updateEventStatus, markCourseServed } = useEvents();
+  const { events, updateEventStatus, markCourseServed, getEventById } = useEvents(user?.id);
+  const { sendCourseNotification } = useNotifications();
   
-  const [activeTab, setActiveTab] = useState<TabType>('Menu');
   const [event, setEvent] = useState<Event | null>(null);
-  const [isOrganizer, setIsOrganizer] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabType>('menu');
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (id) {
-      const foundEvent = events.find(e => e.id === id);
-      if (foundEvent) {
-        setEvent(foundEvent);
-        setIsOrganizer(foundEvent.organizerId === user?.id);
+    const loadEvent = async () => {
+      if (!id) return;
+      
+      console.log('Loading event with ID:', id);
+      
+      // First try to find in local events
+      const localEvent = events.find(e => e.id === id);
+      if (localEvent) {
+        setEvent(localEvent);
+        setIsLoading(false);
+        return;
       }
-    }
-  }, [id, events, user]);
+      
+      // If not found locally, fetch from Firebase
+      const fetchedEvent = await getEventById(id);
+      if (fetchedEvent) {
+        setEvent(fetchedEvent);
+      } else {
+        Alert.alert('Error', 'Event not found');
+        router.back();
+      }
+      setIsLoading(false);
+    };
 
-  if (!event) {
+    loadEvent();
+  }, [id, events, getEventById, router]);
+
+  if (isLoading || !event || !user) {
     return (
-      <SafeAreaView style={commonStyles.container}>
-        <View style={commonStyles.centerContent}>
-          <Text style={commonStyles.text}>Event not found</Text>
-          <TouchableOpacity
-            style={[buttonStyles.primary, { marginTop: 20 }]}
-            onPress={() => router.back()}
-          >
-            <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>
-              Go Back
-            </Text>
-          </TouchableOpacity>
-        </View>
+      <SafeAreaView style={[commonStyles.container, commonStyles.centered]}>
+        <Text style={commonStyles.text}>Loading event...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  const isOrganizer = event.organizerId === user.id;
+  const isParticipant = event.participants.includes(user.id);
+
+  if (!isParticipant && !isOrganizer) {
+    return (
+      <SafeAreaView style={[commonStyles.container, commonStyles.centered]}>
+        <Text style={commonStyles.text}>You don&apos;t have access to this event</Text>
+        <TouchableOpacity
+          style={[commonStyles.button, { marginTop: 16 }]}
+          onPress={() => router.back()}
+        >
+          <Text style={commonStyles.buttonText}>Go Back</Text>
+        </TouchableOpacity>
       </SafeAreaView>
     );
   }
 
   const handleToggleEventStatus = async () => {
-    const result = await updateEventStatus(event.id, !event.isLive);
+    const newStatus = !event.isLive;
+    const result = await updateEventStatus(event.id, newStatus);
+    
     if (result.success) {
-      setEvent({ ...event, isLive: !event.isLive });
+      setEvent(prev => prev ? { ...prev, isLive: newStatus } : null);
+      
+      if (newStatus) {
+        Alert.alert('Success', 'Event is now live! Participants will be notified.');
+      } else {
+        Alert.alert('Success', 'Event has been paused.');
+      }
     } else {
       Alert.alert('Error', result.error || 'Failed to update event status');
     }
   };
 
   const handleMarkCourseServed = async (courseId: string) => {
+    const course = event.menu.find(c => c.id === courseId);
+    if (!course) return;
+
     const result = await markCourseServed(event.id, courseId);
+    
     if (result.success) {
-      const updatedMenu = event.menu.map(course => 
-        course.id === courseId ? { ...course, isServed: true } : course
-      );
-      setEvent({ ...event, menu: updatedMenu });
+      // Update local state
+      setEvent(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          menu: prev.menu.map(c => 
+            c.id === courseId ? { ...c, isServed: true } : c
+          ),
+        };
+      });
+
+      // Send notification to participants
+      await sendCourseNotification(event.id, course.type, course.name);
       
-      // In a real app, this would send push notifications
-      Alert.alert('Course Served', 'Notification sent to all participants!');
+      Alert.alert('Success', `${course.name} has been marked as served and participants have been notified!`);
     } else {
-      Alert.alert('Error', result.error || 'Failed to mark course as served');
+      Alert.alert('Error', result.error || 'Failed to update course');
     }
   };
 
   const renderTabContent = () => {
     switch (activeTab) {
-      case 'Menu':
+      case 'menu':
         return (
-          <View>
-            {isOrganizer && (
-              <View style={[commonStyles.card, { marginBottom: 16 }]}>
-                <View style={[commonStyles.spaceBetween, { marginBottom: 16 }]}>
-                  <Text style={commonStyles.subtitle}>Event Control</Text>
-                  <View style={{
-                    backgroundColor: event.isLive ? colors.success : colors.textSecondary,
-                    paddingHorizontal: 12,
-                    paddingVertical: 6,
-                    borderRadius: 16,
-                  }}>
-                    <Text style={{ color: 'white', fontSize: 12, fontWeight: '600' }}>
-                      {event.isLive ? 'LIVE' : 'NOT LIVE'}
-                    </Text>
-                  </View>
-                </View>
-                
-                <TouchableOpacity
-                  style={[
-                    buttonStyles.primary,
-                    { backgroundColor: event.isLive ? colors.error : colors.success }
-                  ]}
-                  onPress={handleToggleEventStatus}
-                >
-                  <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>
-                    {event.isLive ? 'End Event' : 'Start Event'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
+          <ScrollView style={{ flex: 1, padding: 16 }}>
+            <Text style={[commonStyles.title, { marginBottom: 16 }]}>Menu</Text>
+            
             {event.menu.map((course) => (
-              <View key={course.id} style={commonStyles.smallCard}>
-                <View style={commonStyles.spaceBetween}>
+              <View
+                key={course.id}
+                style={[
+                  commonStyles.card,
+                  {
+                    marginBottom: 12,
+                    backgroundColor: course.isServed ? colors.success + '20' : colors.surface,
+                    borderLeftWidth: 4,
+                    borderLeftColor: course.isServed ? colors.success : colors.primary,
+                  }
+                ]}
+              >
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <View style={{ flex: 1 }}>
-                    <Text style={[commonStyles.text, { fontWeight: '600', marginBottom: 4 }]}>
+                    <Text style={[commonStyles.subtitle, { textTransform: 'capitalize' }]}>
+                      {course.type.replace('_', ' ')}
+                    </Text>
+                    <Text style={[commonStyles.text, { fontWeight: '600', marginTop: 4 }]}>
                       {course.name}
                     </Text>
-                    <Text style={[commonStyles.textSecondary, { fontSize: 12, marginBottom: 8 }]}>
-                      {course.type.toUpperCase()}
-                    </Text>
                     {course.description && (
-                      <Text style={commonStyles.textSecondary}>
+                      <Text style={[commonStyles.textSecondary, { marginTop: 4 }]}>
                         {course.description}
                       </Text>
                     )}
                   </View>
                   
-                  <View style={{ alignItems: 'flex-end' }}>
-                    {course.isServed ? (
-                      <View style={{
-                        backgroundColor: colors.success,
-                        paddingHorizontal: 8,
-                        paddingVertical: 4,
-                        borderRadius: 12,
-                      }}>
-                        <Text style={{ color: 'white', fontSize: 12, fontWeight: '600' }}>
-                          Served
-                        </Text>
-                      </View>
-                    ) : isOrganizer && event.isLive ? (
-                      <TouchableOpacity
-                        style={[buttonStyles.secondary, { paddingHorizontal: 12, paddingVertical: 6 }]}
-                        onPress={() => handleMarkCourseServed(course.id)}
-                      >
-                        <Text style={{ color: 'white', fontSize: 12, fontWeight: '600' }}>
-                          Serve Now
-                        </Text>
-                      </TouchableOpacity>
-                    ) : (
-                      <View style={{
-                        backgroundColor: colors.textSecondary,
-                        paddingHorizontal: 8,
-                        paddingVertical: 4,
-                        borderRadius: 12,
-                      }}>
-                        <Text style={{ color: 'white', fontSize: 12, fontWeight: '600' }}>
-                          Pending
-                        </Text>
-                      </View>
-                    )}
-                  </View>
+                  {isOrganizer && event.isLive && !course.isServed && (
+                    <TouchableOpacity
+                      style={[
+                        commonStyles.button,
+                        { 
+                          backgroundColor: colors.primary,
+                          paddingHorizontal: 12,
+                          paddingVertical: 6,
+                          minWidth: 0,
+                        }
+                      ]}
+                      onPress={() => handleMarkCourseServed(course.id)}
+                    >
+                      <Text style={[commonStyles.buttonText, { fontSize: 12 }]}>
+                        Serve
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  
+                  {course.isServed && (
+                    <View style={{
+                      backgroundColor: colors.success,
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                      borderRadius: 12,
+                    }}>
+                      <Text style={{ color: 'white', fontSize: 12, fontWeight: '600' }}>
+                        Served
+                      </Text>
+                    </View>
+                  )}
                 </View>
               </View>
             ))}
-          </View>
+          </ScrollView>
         );
 
-      case 'Notifications':
+      case 'album':
         return (
-          <View style={commonStyles.card}>
-            <Text style={[commonStyles.textSecondary, { textAlign: 'center' }]}>
-              Notifications feature coming soon!
-            </Text>
-          </View>
+          <PhotoGallery
+            eventId={event.id}
+            user={user}
+            isOrganizer={isOrganizer}
+            canUpload={isParticipant || isOrganizer}
+          />
         );
 
-      case 'Album':
+      case 'qr':
         return (
-          <View style={commonStyles.card}>
-            <Text style={[commonStyles.textSecondary, { textAlign: 'center' }]}>
-              Photo album feature coming soon!
+          <ScrollView style={{ flex: 1, padding: 16 }}>
+            <Text style={[commonStyles.title, { marginBottom: 16, textAlign: 'center' }]}>
+              Event QR Code
             </Text>
-          </View>
-        );
-
-      case 'QR Code':
-        return isOrganizer ? (
-          <QRCodeGenerator event={event} />
-        ) : (
-          <View style={commonStyles.card}>
-            <Text style={[commonStyles.textSecondary, { textAlign: 'center' }]}>
-              Only organizers can view the QR code
+            <Text style={[commonStyles.textSecondary, { marginBottom: 24, textAlign: 'center' }]}>
+              Share this QR code with guests to let them join the event
             </Text>
-          </View>
+            
+            <View style={[commonStyles.card, { alignItems: 'center', padding: 24 }]}>
+              <QRCodeGenerator value={event.qrCode} size={200} />
+              
+              <Text style={[commonStyles.text, { marginTop: 16, textAlign: 'center' }]}>
+                {event.title}
+              </Text>
+              <Text style={[commonStyles.textSecondary, { marginTop: 4, textAlign: 'center' }]}>
+                {new Date(event.date).toLocaleDateString()}
+              </Text>
+            </View>
+          </ScrollView>
         );
 
       default:
-        return null;
+        return (
+          <View style={[commonStyles.container, commonStyles.centered]}>
+            <Text style={commonStyles.text}>Coming soon...</Text>
+          </View>
+        );
     }
   };
 
   return (
     <SafeAreaView style={commonStyles.container}>
-      <View style={commonStyles.header}>
+      {/* Header */}
+      <View style={[commonStyles.header, { backgroundColor: colors.surface }]}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Icon name="arrow-back" size={24} color={colors.text} />
+          <Icon name="arrow-left" size={24} color={colors.text} />
         </TouchableOpacity>
-        <View style={{ flex: 1, alignItems: 'center' }}>
-          <Text style={[commonStyles.subtitle, { margin: 0 }]} numberOfLines={1}>
+        
+        <View style={{ flex: 1, marginLeft: 16 }}>
+          <Text style={[commonStyles.title, { fontSize: 18 }]} numberOfLines={1}>
             {event.title}
           </Text>
-        </View>
-        <View style={{ width: 24 }} />
-      </View>
-
-      <View style={commonStyles.card}>
-        <Text style={[commonStyles.text, { marginBottom: 4 }]}>
-          {new Date(event.date).toLocaleDateString('en-US', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
-        </Text>
-        <View style={commonStyles.centerRow}>
-          <Icon name="location" size={16} color={colors.textSecondary} />
-          <Text style={[commonStyles.textSecondary, { marginLeft: 4 }]}>
-            {event.location}
+          <Text style={commonStyles.textSecondary}>
+            {new Date(event.date).toLocaleDateString()} • {event.location}
           </Text>
         </View>
-        <View style={[commonStyles.centerRow, { marginTop: 8 }]}>
-          <Icon name="people" size={16} color={colors.textSecondary} />
-          <Text style={[commonStyles.textSecondary, { marginLeft: 4 }]}>
-            {event.participants.length} participants
-          </Text>
-        </View>
-      </View>
 
-      <View style={commonStyles.tabBar}>
-        {tabs.map((tab) => (
+        {isOrganizer && (
           <TouchableOpacity
-            key={tab}
             style={[
-              commonStyles.tab,
-              activeTab === tab && commonStyles.activeTab,
+              commonStyles.button,
+              {
+                backgroundColor: event.isLive ? colors.error : colors.success,
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                minWidth: 0,
+              }
             ]}
-            onPress={() => setActiveTab(tab)}
+            onPress={handleToggleEventStatus}
           >
+            <Text style={[commonStyles.buttonText, { fontSize: 12 }]}>
+              {event.isLive ? 'Pause' : 'Go Live'}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Status Indicator */}
+      {event.isLive && (
+        <View style={{
+          backgroundColor: colors.success,
+          paddingVertical: 8,
+          alignItems: 'center',
+        }}>
+          <Text style={{ color: 'white', fontWeight: '600' }}>
+            🔴 Event is Live
+          </Text>
+        </View>
+      )}
+
+      {/* Tabs */}
+      <View style={{
+        flexDirection: 'row',
+        backgroundColor: colors.surface,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
+      }}>
+        {[
+          { key: 'menu', label: 'Menu', icon: 'list' },
+          { key: 'album', label: 'Album', icon: 'image' },
+          { key: 'qr', label: 'QR Code', icon: 'qr-code' },
+        ].map((tab) => (
+          <TouchableOpacity
+            key={tab.key}
+            style={{
+              flex: 1,
+              paddingVertical: 12,
+              alignItems: 'center',
+              borderBottomWidth: 2,
+              borderBottomColor: activeTab === tab.key ? colors.primary : 'transparent',
+            }}
+            onPress={() => setActiveTab(tab.key as TabType)}
+          >
+            <Icon
+              name={tab.icon}
+              size={20}
+              color={activeTab === tab.key ? colors.primary : colors.textSecondary}
+            />
             <Text
               style={{
-                color: activeTab === tab ? 'white' : colors.textSecondary,
-                fontSize: 14,
-                fontWeight: '600',
+                marginTop: 4,
+                fontSize: 12,
+                color: activeTab === tab.key ? colors.primary : colors.textSecondary,
+                fontWeight: activeTab === tab.key ? '600' : '400',
               }}
             >
-              {tab}
+              {tab.label}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      <ScrollView style={commonStyles.content}>
-        {renderTabContent()}
-      </ScrollView>
+      {/* Tab Content */}
+      {renderTabContent()}
     </SafeAreaView>
   );
-}
+};
+
+export default EventDetailScreen;

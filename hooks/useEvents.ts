@@ -1,28 +1,105 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { 
+  collection, 
+  doc, 
+  addDoc, 
+  updateDoc, 
+  getDocs, 
+  getDoc,
+  query, 
+  where, 
+  orderBy, 
+  onSnapshot,
+  arrayUnion,
+  serverTimestamp,
+  Timestamp
+} from 'firebase/firestore';
+import { db } from '../config/firebase';
 import { Event, MenuCourse, User } from '../types';
-
-const EVENTS_KEY = 'events_data';
-const USER_EVENTS_KEY = 'user_events';
 
 export const useEvents = (userId?: string) => {
   const [events, setEvents] = useState<Event[]>([]);
   const [userEvents, setUserEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Convert Firestore timestamp to Date
+  const convertTimestamp = (timestamp: any): Date => {
+    if (timestamp && timestamp.toDate) {
+      return timestamp.toDate();
+    }
+    return new Date(timestamp);
+  };
+
+  // Convert Firestore document to Event object
+  const convertFirestoreEvent = (doc: any): Event => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      title: data.title,
+      description: data.description,
+      date: convertTimestamp(data.date),
+      location: data.location,
+      organizerId: data.organizerId,
+      organizer: data.organizer,
+      menu: data.menu || [],
+      participants: data.participants || [],
+      qrCode: data.qrCode,
+      isLive: data.isLive || false,
+      createdAt: convertTimestamp(data.createdAt),
+      expiresAt: convertTimestamp(data.expiresAt),
+    };
+  };
+
   const loadEvents = useCallback(async () => {
+    if (!userId) {
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const eventsData = await AsyncStorage.getItem(EVENTS_KEY);
-      const userEventsData = await AsyncStorage.getItem(`${USER_EVENTS_KEY}_${userId}`);
+      console.log('Loading events for user:', userId);
       
-      if (eventsData) {
-        setEvents(JSON.parse(eventsData));
-      }
+      // Load events where user is organizer or participant
+      const eventsRef = collection(db, 'events');
+      const organizerQuery = query(
+        eventsRef, 
+        where('organizerId', '==', userId),
+        orderBy('createdAt', 'desc')
+      );
       
-      if (userEventsData && userId) {
-        setUserEvents(JSON.parse(userEventsData));
-      }
+      const participantQuery = query(
+        eventsRef,
+        where('participants', 'array-contains', userId),
+        orderBy('createdAt', 'desc')
+      );
+
+      const [organizerSnapshot, participantSnapshot] = await Promise.all([
+        getDocs(organizerQuery),
+        getDocs(participantQuery)
+      ]);
+
+      const allEvents: Event[] = [];
+      const eventIds = new Set();
+
+      // Add organized events
+      organizerSnapshot.forEach((doc) => {
+        const event = convertFirestoreEvent(doc);
+        allEvents.push(event);
+        eventIds.add(doc.id);
+      });
+
+      // Add participated events (avoid duplicates)
+      participantSnapshot.forEach((doc) => {
+        if (!eventIds.has(doc.id)) {
+          const event = convertFirestoreEvent(doc);
+          allEvents.push(event);
+        }
+      });
+
+      console.log('Loaded events:', allEvents.length);
+      setEvents(allEvents);
+      setUserEvents(allEvents);
     } catch (error) {
       console.log('Error loading events:', error);
     } finally {
@@ -42,33 +119,46 @@ export const useEvents = (userId?: string) => {
     menu: Omit<MenuCourse, 'id' | 'isServed'>[];
   }, organizer: User) => {
     try {
-      const newEvent: Event = {
-        id: Date.now().toString(),
-        ...eventData,
+      console.log('Creating event:', eventData.title);
+      
+      const menuWithIds = eventData.menu.map((course, index) => ({
+        ...course,
+        id: `${Date.now()}_${index}`,
+        isServed: false,
+      }));
+
+      const newEventData = {
+        title: eventData.title,
+        description: eventData.description || '',
+        date: Timestamp.fromDate(eventData.date),
+        location: eventData.location,
         organizerId: organizer.id,
-        organizer,
-        menu: eventData.menu.map((course, index) => ({
-          ...course,
-          id: `${Date.now()}_${index}`,
-          isServed: false,
-        })),
+        organizer: {
+          id: organizer.id,
+          name: organizer.name,
+          email: organizer.email,
+          avatar: organizer.avatar,
+        },
+        menu: menuWithIds,
         participants: [organizer.id],
-        qrCode: `aug-event://join/${Date.now()}`,
+        qrCode: '', // Will be updated after creation
         isLive: false,
-        createdAt: new Date(),
-        expiresAt: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000), // 180 days
+        createdAt: serverTimestamp(),
+        expiresAt: Timestamp.fromDate(new Date(Date.now() + 180 * 24 * 60 * 60 * 1000)), // 180 days
       };
 
-      const updatedEvents = [...events, newEvent];
-      const updatedUserEvents = [...userEvents, newEvent];
+      const docRef = await addDoc(collection(db, 'events'), newEventData);
       
-      await AsyncStorage.setItem(EVENTS_KEY, JSON.stringify(updatedEvents));
-      await AsyncStorage.setItem(`${USER_EVENTS_KEY}_${organizer.id}`, JSON.stringify(updatedUserEvents));
+      // Update with QR code that includes the document ID
+      const qrCode = `aug-event://join/${docRef.id}`;
+      await updateDoc(docRef, { qrCode });
+
+      console.log('Event created with ID:', docRef.id);
       
-      setEvents(updatedEvents);
-      setUserEvents(updatedUserEvents);
+      // Reload events to get the updated list
+      await loadEvents();
       
-      return { success: true, event: newEvent };
+      return { success: true, eventId: docRef.id };
     } catch (error) {
       console.log('Error creating event:', error);
       return { success: false, error: 'Failed to create event' };
@@ -77,30 +167,31 @@ export const useEvents = (userId?: string) => {
 
   const joinEvent = async (eventId: string, user: User) => {
     try {
-      const event = events.find(e => e.id === eventId);
-      if (!event) {
+      console.log('Joining event:', eventId, 'for user:', user.id);
+      
+      const eventRef = doc(db, 'events', eventId);
+      const eventDoc = await getDoc(eventRef);
+      
+      if (!eventDoc.exists()) {
         return { success: false, error: 'Event not found' };
       }
 
-      if (event.participants.includes(user.id)) {
+      const eventData = eventDoc.data();
+      if (eventData.participants && eventData.participants.includes(user.id)) {
         return { success: false, error: 'Already joined this event' };
       }
 
-      const updatedEvent = {
-        ...event,
-        participants: [...event.participants, user.id],
-      };
+      // Add user to participants array
+      await updateDoc(eventRef, {
+        participants: arrayUnion(user.id)
+      });
 
-      const updatedEvents = events.map(e => e.id === eventId ? updatedEvent : e);
-      const updatedUserEvents = [...userEvents, updatedEvent];
+      console.log('Successfully joined event');
       
-      await AsyncStorage.setItem(EVENTS_KEY, JSON.stringify(updatedEvents));
-      await AsyncStorage.setItem(`${USER_EVENTS_KEY}_${user.id}`, JSON.stringify(updatedUserEvents));
+      // Reload events to get the updated list
+      await loadEvents();
       
-      setEvents(updatedEvents);
-      setUserEvents(updatedUserEvents);
-      
-      return { success: true, event: updatedEvent };
+      return { success: true };
     } catch (error) {
       console.log('Error joining event:', error);
       return { success: false, error: 'Failed to join event' };
@@ -109,13 +200,25 @@ export const useEvents = (userId?: string) => {
 
   const updateEventStatus = async (eventId: string, isLive: boolean) => {
     try {
-      const updatedEvents = events.map(event => 
-        event.id === eventId ? { ...event, isLive } : event
+      console.log('Updating event status:', eventId, 'isLive:', isLive);
+      
+      const eventRef = doc(db, 'events', eventId);
+      await updateDoc(eventRef, { isLive });
+      
+      // Update local state
+      setEvents(prevEvents => 
+        prevEvents.map(event => 
+          event.id === eventId ? { ...event, isLive } : event
+        )
       );
       
-      await AsyncStorage.setItem(EVENTS_KEY, JSON.stringify(updatedEvents));
-      setEvents(updatedEvents);
+      setUserEvents(prevEvents => 
+        prevEvents.map(event => 
+          event.id === eventId ? { ...event, isLive } : event
+        )
+      );
       
+      console.log('Event status updated successfully');
       return { success: true };
     } catch (error) {
       console.log('Error updating event status:', error);
@@ -125,7 +228,24 @@ export const useEvents = (userId?: string) => {
 
   const markCourseServed = async (eventId: string, courseId: string) => {
     try {
-      const updatedEvents = events.map(event => {
+      console.log('Marking course served:', eventId, courseId);
+      
+      const eventRef = doc(db, 'events', eventId);
+      const eventDoc = await getDoc(eventRef);
+      
+      if (!eventDoc.exists()) {
+        return { success: false, error: 'Event not found' };
+      }
+
+      const eventData = eventDoc.data();
+      const updatedMenu = eventData.menu.map((course: MenuCourse) => 
+        course.id === courseId ? { ...course, isServed: true } : course
+      );
+
+      await updateDoc(eventRef, { menu: updatedMenu });
+      
+      // Update local state
+      const updateEventMenu = (event: Event) => {
         if (event.id === eventId) {
           return {
             ...event,
@@ -135,15 +255,34 @@ export const useEvents = (userId?: string) => {
           };
         }
         return event;
-      });
+      };
       
-      await AsyncStorage.setItem(EVENTS_KEY, JSON.stringify(updatedEvents));
-      setEvents(updatedEvents);
+      setEvents(prevEvents => prevEvents.map(updateEventMenu));
+      setUserEvents(prevEvents => prevEvents.map(updateEventMenu));
       
+      console.log('Course marked as served successfully');
       return { success: true };
     } catch (error) {
       console.log('Error marking course served:', error);
       return { success: false, error: 'Failed to update course' };
+    }
+  };
+
+  const getEventById = async (eventId: string): Promise<Event | null> => {
+    try {
+      console.log('Getting event by ID:', eventId);
+      
+      const eventRef = doc(db, 'events', eventId);
+      const eventDoc = await getDoc(eventRef);
+      
+      if (eventDoc.exists()) {
+        return convertFirestoreEvent(eventDoc);
+      }
+      
+      return null;
+    } catch (error) {
+      console.log('Error getting event by ID:', error);
+      return null;
     }
   };
 
@@ -156,5 +295,6 @@ export const useEvents = (userId?: string) => {
     updateEventStatus,
     markCourseServed,
     refreshEvents: loadEvents,
+    getEventById,
   };
 };

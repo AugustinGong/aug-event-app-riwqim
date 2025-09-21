@@ -1,47 +1,60 @@
+
 {
   "expo": {
-    "name": "Natively",
-    "slug": "Natively",
+    "name": "AUG-Event",
+    "slug": "aug-event",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/natively-dark.png",
-    "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
+    "icon": "./assets/images/final_quest_240x240.png",
+    "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/images/natively-dark.png",
+      "image": "./assets/images/final_quest_240x240.png",
       "resizeMode": "contain",
-      "backgroundColor": "#000000"
+      "backgroundColor": "#ffffff"
     },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.Natively",
-      "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
+      "bundleIdentifier": "com.augevent.app"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/natively-dark.png",
-        "backgroundColor": "#000000"
+        "foregroundImage": "./assets/images/final_quest_240x240.png",
+        "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.Natively"
+      "package": "com.augevent.app"
     },
     "web": {
       "favicon": "./assets/images/final_quest_240x240.png",
       "bundler": "metro"
     },
     "plugins": [
-      "expo-font",
       "expo-router",
-      "expo-web-browser"
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/final_quest_240x240.png",
+          "color": "#8B5CF6"
+        }
+      ],
+      [
+        "expo-barcode-scanner",
+        {
+          "cameraPermission": "Allow AUG-Event to access camera to scan QR codes for joining events."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow AUG-Event to access camera to scan QR codes and take photos for events."
+        }
+      ]
     ],
-    "scheme": "natively",
+    "scheme": "aug-event",
     "experiments": {
       "typedRoutes": true
-    },
-    "extra": {
-      "router": {}
     }
   }
 }

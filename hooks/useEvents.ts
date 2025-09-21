@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Event, MenuCourse, User } from '../types';
 
@@ -11,11 +11,7 @@ export const useEvents = (userId?: string) => {
   const [userEvents, setUserEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    loadEvents();
-  }, [userId]);
-
-  const loadEvents = async () => {
+  const loadEvents = useCallback(async () => {
     try {
       const eventsData = await AsyncStorage.getItem(EVENTS_KEY);
       const userEventsData = await AsyncStorage.getItem(`${USER_EVENTS_KEY}_${userId}`);
@@ -32,7 +28,11 @@ export const useEvents = (userId?: string) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [userId]);
+
+  useEffect(() => {
+    loadEvents();
+  }, [loadEvents]);
 
   const createEvent = async (eventData: {
     title: string;

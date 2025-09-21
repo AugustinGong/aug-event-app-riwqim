@@ -31,8 +31,8 @@ export const useNotifications = () => {
     });
 
     return () => {
-      Notifications.removeNotificationSubscription(notificationListener);
-      Notifications.removeNotificationSubscription(responseListener);
+      notificationListener && notificationListener.remove();
+      responseListener && responseListener.remove();
     };
   }, []);
 

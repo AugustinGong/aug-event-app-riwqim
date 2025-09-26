@@ -15,8 +15,12 @@ const i18n = new I18n({
   fr,
 });
 
+// Get device locale using the correct API
+const deviceLocales = Localization.getLocales();
+const deviceLocale = deviceLocales[0]?.languageCode || 'en';
+
 // Set the locale once at the beginning of your app
-i18n.locale = Localization.locale;
+i18n.locale = deviceLocale;
 
 // When a value is missing from a language it'll fall back to another language with the key present
 i18n.enableFallback = true;
@@ -53,9 +57,10 @@ export const initializeLanguage = async (): Promise<void> => {
       i18n.locale = storedLanguage;
     } else {
       // Use device locale if available, otherwise default to English
-      const deviceLocale = Localization.locale.split('-')[0]; // Get language code only
-      if (['en', 'it', 'fr'].includes(deviceLocale)) {
-        i18n.locale = deviceLocale;
+      const locales = Localization.getLocales();
+      const primaryLocale = locales[0]?.languageCode || 'en';
+      if (['en', 'it', 'fr'].includes(primaryLocale)) {
+        i18n.locale = primaryLocale;
       } else {
         i18n.locale = 'en';
       }

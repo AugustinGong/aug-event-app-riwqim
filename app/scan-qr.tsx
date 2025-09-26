@@ -9,6 +9,7 @@ import React, { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEvents } from '../hooks/useEvents';
 import Icon from '../components/Icon';
+import LanguageSelector from '../components/LanguageSelector';
 
 export default function JoinEventScreen() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -175,6 +176,16 @@ export default function JoinEventScreen() {
               {i18n.t('joinEvent.instructions')}
             </Text>
           </View>
+        </View>
+
+        {/* Floating Language Selector Bubble */}
+        <View style={{
+          position: 'absolute',
+          bottom: 30,
+          right: 20,
+          zIndex: 1000,
+        }}>
+          <LanguageSelector isFloating={true} />
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

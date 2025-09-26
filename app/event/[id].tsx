@@ -12,6 +12,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import i18n from '../../config/i18n';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
+import LanguageSelector from '../../components/LanguageSelector';
 
 type TabType = 'menu' | 'notifications' | 'album' | 'access';
 
@@ -458,6 +459,16 @@ export default function EventDetailScreen() {
       {/* Tab Content */}
       <View style={{ flex: 1 }}>
         {renderTabContent()}
+      </View>
+
+      {/* Floating Language Selector Bubble */}
+      <View style={{
+        position: 'absolute',
+        bottom: 30,
+        right: 20,
+        zIndex: 1000,
+      }}>
+        <LanguageSelector isFloating={true} />
       </View>
     </SafeAreaView>
   );

@@ -11,6 +11,7 @@ import Icon from '../components/Icon';
 import { commonStyles, colors, buttonStyles } from '../styles/commonStyles';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Redirect } from 'expo-router';
+import LanguageSelector from '../components/LanguageSelector';
 
 export default function CreateEventScreen() {
   const router = useRouter();
@@ -381,6 +382,16 @@ export default function CreateEventScreen() {
               </Text>
             </TouchableOpacity>
           </ScrollView>
+
+          {/* Floating Language Selector Bubble */}
+          <View style={{
+            position: 'absolute',
+            bottom: 30,
+            right: 20,
+            zIndex: 1000,
+          }}>
+            <LanguageSelector isFloating={true} />
+          </View>
         </KeyboardAvoidingView>
       </TouchableWithoutFeedback>
     </SafeAreaView>

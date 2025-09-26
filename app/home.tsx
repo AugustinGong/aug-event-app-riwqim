@@ -95,15 +95,28 @@ export default function HomeScreen() {
             AUG-Event
           </Text>
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <LanguageSelector />
-          <TouchableOpacity 
-            style={{ marginLeft: 15 }}
-            onPress={handleLogout}
-          >
-            <Icon name="log-out" size={24} color={colors.text} />
-          </TouchableOpacity>
-        </View>
+        {/* Logout button moved to top right */}
+        <TouchableOpacity 
+          style={{
+            backgroundColor: colors.error,
+            paddingHorizontal: 16,
+            paddingVertical: 8,
+            borderRadius: 20,
+            flexDirection: 'row',
+            alignItems: 'center',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            elevation: 2,
+          }}
+          onPress={handleLogout}
+        >
+          <Icon name="log-out" size={18} color="white" />
+          <Text style={{ color: 'white', marginLeft: 6, fontSize: 14, fontWeight: '600' }}>
+            {i18n.t('auth.signOut')}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Welcome Section */}
@@ -201,6 +214,16 @@ export default function HomeScreen() {
           </>
         )}
       </ScrollView>
+
+      {/* Floating Language Selector Bubble */}
+      <View style={{
+        position: 'absolute',
+        bottom: 30,
+        right: 20,
+        zIndex: 1000,
+      }}>
+        <LanguageSelector isFloating={true} />
+      </View>
     </SafeAreaView>
   );
 }

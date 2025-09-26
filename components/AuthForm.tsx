@@ -5,16 +5,17 @@ import { commonStyles, colors, buttonStyles } from '../styles/commonStyles';
 import Icon from './Icon';
 import LanguageSelector from './LanguageSelector';
 import i18n from '../config/i18n';
-import { View, Text, TextInput, TouchableOpacity, Alert, Keyboard, TouchableWithoutFeedback, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, Keyboard, TouchableWithoutFeedback } from 'react-native';
 
 interface AuthFormProps {
-  onSuccess: () => void;
+  onSuccess: (userName?: string) => void;
 }
 
 export default function AuthForm({ onSuccess }: AuthFormProps) {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const { login, register } = useAuth();
@@ -35,12 +36,13 @@ export default function AuthForm({ onSuccess }: AuthFormProps) {
       if (isLogin) {
         const result = await login(email, password);
         if (result.success) {
-          onSuccess();
+          const userName = result.user?.user_metadata?.name || result.user?.email?.split('@')[0] || 'User';
+          onSuccess(userName);
         } else {
           Alert.alert(i18n.t('common.error'), result.error || i18n.t('auth.invalidCredentials'));
         }
       } else {
-        const result = await register(email, password);
+        const result = await register(email, password, name || email.split('@')[0]);
         if (result.success) {
           if (result.message) {
             Alert.alert(
@@ -49,7 +51,8 @@ export default function AuthForm({ onSuccess }: AuthFormProps) {
               [{ text: i18n.t('common.close') }]
             );
           } else {
-            onSuccess();
+            const userName = result.user?.user_metadata?.name || name || email.split('@')[0] || 'User';
+            onSuccess(userName);
           }
         } else {
           Alert.alert(i18n.t('common.error'), result.error || 'Registration failed');
@@ -76,6 +79,22 @@ export default function AuthForm({ onSuccess }: AuthFormProps) {
               {isLogin ? i18n.t('auth.login') : i18n.t('auth.register')}
             </Text>
           </View>
+
+          {!isLogin && (
+            <View style={{ marginBottom: 20 }}>
+              <Text style={[commonStyles.label, { marginBottom: 8 }]}>
+                Name
+              </Text>
+              <TextInput
+                style={commonStyles.input}
+                value={name}
+                onChangeText={setName}
+                placeholder="Enter your name"
+                autoCapitalize="words"
+                autoComplete="name"
+              />
+            </View>
+          )}
 
           <View style={{ marginBottom: 20 }}>
             <Text style={[commonStyles.label, { marginBottom: 8 }]}>

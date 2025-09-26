@@ -1,7 +1,7 @@
 
 import { useRouter } from 'expo-router';
 import { useEvents } from '../hooks/useEvents';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import Icon from '../components/Icon';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,6 +16,18 @@ export default function HomeScreen() {
   const { events, loading, loadEvents } = useEvents();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
+
+  useEffect(() => {
+    // Show welcome message for new sessions
+    if (user) {
+      const timer = setTimeout(() => {
+        setShowWelcome(true);
+        setTimeout(() => setShowWelcome(false), 3000);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [user]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -37,7 +49,10 @@ export default function HomeScreen() {
           style: 'destructive',
           onPress: async () => {
             const result = await logout();
-            if (!result.success) {
+            if (result.success) {
+              // Navigation will be handled automatically by the auth state change
+              console.log('Logout successful');
+            } else {
               Alert.alert(i18n.t('common.error'), result.error || 'Logout failed');
             }
           },
@@ -51,13 +66,50 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={[commonStyles.container, { backgroundColor: colors.background }]}>
+      {/* Welcome Message */}
+      {showWelcome && user && (
+        <View style={{
+          position: 'absolute',
+          top: 100,
+          left: 20,
+          right: 20,
+          backgroundColor: colors.primary,
+          padding: 16,
+          borderRadius: 12,
+          zIndex: 1000,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.25,
+          shadowRadius: 4,
+          elevation: 5,
+        }}>
+          <Text style={{
+            color: 'white',
+            fontSize: 18,
+            fontWeight: '600',
+            textAlign: 'center',
+          }}>
+            Welcome, {user.name}! 🎉
+          </Text>
+          <Text style={{
+            color: 'white',
+            fontSize: 14,
+            textAlign: 'center',
+            marginTop: 4,
+            opacity: 0.9,
+          }}>
+            Ready to create amazing events?
+          </Text>
+        </View>
+      )}
+
       <View style={[commonStyles.header, { paddingHorizontal: 20 }]}>
         <View>
           <Text style={[commonStyles.title, { color: colors.primary }]}>
             {i18n.t('home.title')}
           </Text>
           <Text style={commonStyles.subtitle}>
-            {i18n.t('home.subtitle')}
+            {user ? `Hello, ${user.name}` : i18n.t('home.subtitle')}
           </Text>
         </View>
         <TouchableOpacity onPress={handleLogout}>

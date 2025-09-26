@@ -124,7 +124,7 @@ export const useAuth = () => {
       }
 
       console.log('Login successful:', data.user?.id);
-      return { success: true };
+      return { success: true, user: data.user };
     } catch (error: any) {
       console.log('Login error:', error.message);
       return { success: false, error: 'Login failed' };
@@ -174,11 +174,12 @@ export const useAuth = () => {
       if (data.user && !data.session) {
         return { 
           success: true, 
-          message: 'Please check your email to confirm your account' 
+          message: 'Please check your email to confirm your account',
+          user: data.user
         };
       }
       
-      return { success: true };
+      return { success: true, user: data.user };
     } catch (error: any) {
       console.log('Registration error:', error.message);
       return { success: false, error: 'Registration failed' };
@@ -200,6 +201,10 @@ export const useAuth = () => {
         console.log('Logout error:', error.message);
         return { success: false, error: 'Logout failed' };
       }
+      
+      // Clear local state immediately
+      setUser(null);
+      setIsAuthenticated(false);
       
       return { success: true };
     } catch (error: any) {

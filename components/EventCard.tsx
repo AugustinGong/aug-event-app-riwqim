@@ -4,6 +4,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { commonStyles, colors } from '../styles/commonStyles';
 import { Event } from '../types';
 import Icon from './Icon';
+import i18n from '../config/i18n';
 
 interface EventCardProps {
   event: Event;
@@ -13,7 +14,7 @@ interface EventCardProps {
 
 export default function EventCard({ event, onPress, isOrganizer }: EventCardProps) {
   const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString('en-US', {
+    return new Date(date).toLocaleDateString(i18n.locale, {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
@@ -23,14 +24,14 @@ export default function EventCard({ event, onPress, isOrganizer }: EventCardProp
   };
 
   const getStatusColor = () => {
-    if (event.isLive) return colors.success;
-    if (new Date(event.date) < new Date()) return colors.textSecondary;
+    if (event.status === 'active') return colors.success;
+    if (event.status === 'ended') return colors.textSecondary;
     return colors.primary;
   };
 
   const getStatusText = () => {
-    if (event.isLive) return 'Live';
-    if (new Date(event.date) < new Date()) return 'Ended';
+    if (event.status === 'active') return i18n.t('event.eventStarted');
+    if (event.status === 'ended') return i18n.t('event.eventEnded');
     return 'Upcoming';
   };
 
@@ -45,7 +46,7 @@ export default function EventCard({ event, onPress, isOrganizer }: EventCardProp
             {formatDate(event.date)}
           </Text>
           <View style={commonStyles.centerRow}>
-            <Icon name="location" size={16} color={colors.textSecondary} />
+            <Icon name="map-pin" size={16} color={colors.textSecondary} />
             <Text style={[commonStyles.textSecondary, { marginLeft: 4 }]}>
               {event.location}
             </Text>
@@ -67,7 +68,7 @@ export default function EventCard({ event, onPress, isOrganizer }: EventCardProp
           
           {isOrganizer && (
             <View style={commonStyles.centerRow}>
-              <Icon name="crown" size={16} color={colors.primary} />
+              <Icon name="star" size={16} color={colors.primary} />
               <Text style={[commonStyles.textSecondary, { marginLeft: 4, fontSize: 12 }]}>
                 Organizer
               </Text>
@@ -77,7 +78,7 @@ export default function EventCard({ event, onPress, isOrganizer }: EventCardProp
           <View style={[commonStyles.centerRow, { marginTop: 4 }]}>
             <Icon name="people" size={16} color={colors.textSecondary} />
             <Text style={[commonStyles.textSecondary, { marginLeft: 4, fontSize: 12 }]}>
-              {event.participants.length}
+              {event.participants?.length || 0}
             </Text>
           </View>
         </View>

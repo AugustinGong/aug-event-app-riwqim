@@ -3,7 +3,8 @@ import * as Notifications from 'expo-notifications';
 import { Notification as AppNotification } from '../types';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from '../config/supabase';
-import { Platform } from 'react-native';
+import { Platform, Alert } from 'react-native';
+import i18n from '../config/i18n';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -39,8 +40,12 @@ export const useNotifications = () => {
 
     return () => {
       // Clean up notification listeners using the correct .remove() method
-      notificationListener.current?.remove();
-      responseListener.current?.remove();
+      if (notificationListener.current) {
+        notificationListener.current.remove();
+      }
+      if (responseListener.current) {
+        responseListener.current.remove();
+      }
     };
   }, []);
 
@@ -84,7 +89,7 @@ export const useNotifications = () => {
 
   const sendNotification = async (eventId: string, message: string, type: string = 'course') => {
     if (!isSupabaseConfigured) {
-      throw new Error('Supabase is not configured. Please set up your Supabase connection first.');
+      throw new Error(i18n.t('errors.supabaseNotConfigured'));
     }
 
     try {
@@ -107,17 +112,26 @@ export const useNotifications = () => {
         throw error;
       }
 
-      // Send push notification (this would typically be done via a cloud function)
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: 'AUG-Event',
-          body: message,
-          data: { eventId, type },
-        },
-        trigger: null, // Send immediately
-      });
-
-      console.log('Notification sent successfully');
+      // Try to send push notification (will fail in Expo Go)
+      try {
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: 'AUG-Event',
+            body: message,
+            data: { eventId, type },
+          },
+          trigger: null, // Send immediately
+        });
+        console.log('Notification sent successfully');
+      } catch (notificationError) {
+        console.log('Push notification failed (expected in Expo Go):', notificationError);
+        // Show alert about Expo Go limitation
+        Alert.alert(
+          i18n.t('errors.notificationNotSupported'),
+          'Push notifications work in development builds but not in Expo Go. The notification has been saved to the database.',
+          [{ text: i18n.t('common.close') }]
+        );
+      }
       
       // Reload notifications
       await loadNotifications(eventId);
@@ -133,30 +147,34 @@ export const useNotifications = () => {
     let token;
 
     if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('default', {
-        name: 'default',
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#FF231F7C',
-      });
-    }
-
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
-    if (finalStatus !== 'granted') {
-      console.log('Failed to get push token for push notification!');
-      return null;
+      try {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'default',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#FF231F7C',
+        });
+      } catch (error) {
+        console.log('Error setting notification channel:', error);
+      }
     }
 
     try {
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      if (finalStatus !== 'granted') {
+        console.log('Failed to get push token for push notification!');
+        return null;
+      }
+
       token = (await Notifications.getExpoPushTokenAsync()).data;
       console.log('Expo push token:', token);
     } catch (error) {
-      console.log('Error getting push token:', error);
+      console.log('Error getting push token (expected in Expo Go):', error);
       return null;
     }
 

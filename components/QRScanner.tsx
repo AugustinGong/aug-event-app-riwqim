@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Alert } from 'react-native';
-import { BarCodeScanner } from 'expo-barcode-scanner';
+import { View, Text, TouchableOpacity, Alert, Platform } from 'react-native';
 import { commonStyles, colors, buttonStyles } from '../styles/commonStyles';
 import Icon from './Icon';
+import i18n from '../config/i18n';
 
 interface QRScannerProps {
   onScan: (data: string) => void;
@@ -13,15 +13,32 @@ interface QRScannerProps {
 export default function QRScanner({ onScan, onClose }: QRScannerProps) {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
+  const [BarCodeScanner, setBarCodeScanner] = useState<any>(null);
 
   useEffect(() => {
-    const getBarCodeScannerPermissions = async () => {
-      const { status } = await BarCodeScanner.requestPermissionsAsync();
-      setHasPermission(status === 'granted');
+    const loadBarCodeScanner = async () => {
+      try {
+        // Dynamically import BarCodeScanner to handle potential missing native module
+        const { BarCodeScanner: BCS } = await import('expo-barcode-scanner');
+        setBarCodeScanner(BCS);
+        
+        const { status } = await BCS.requestPermissionsAsync();
+        setHasPermission(status === 'granted');
+      } catch (error) {
+        console.log('BarCodeScanner not available:', error);
+        setHasPermission(false);
+        Alert.alert(
+          i18n.t('errors.cameraNotSupported'),
+          Platform.OS === 'web' 
+            ? 'Camera scanning is not supported on web. Please use a mobile device.'
+            : 'Camera scanning is not available on this device.',
+          [{ text: i18n.t('common.close'), onPress: onClose }]
+        );
+      }
     };
 
-    getBarCodeScannerPermissions();
-  }, []);
+    loadBarCodeScanner();
+  }, [onClose]);
 
   const handleBarCodeScanned = ({ type, data }: { type: string; data: string }) => {
     setScanned(true);
@@ -30,7 +47,10 @@ export default function QRScanner({ onScan, onClose }: QRScannerProps) {
     if (data.includes('aug-event://join/')) {
       onScan(data);
     } else {
-      Alert.alert('Invalid QR Code', 'This is not a valid AUG-Event QR code');
+      Alert.alert(
+        i18n.t('qrScanner.invalidQRCode'), 
+        i18n.t('qrScanner.invalidQRCodeMessage')
+      );
       setScanned(false);
     }
   };
@@ -38,22 +58,24 @@ export default function QRScanner({ onScan, onClose }: QRScannerProps) {
   if (hasPermission === null) {
     return (
       <View style={[commonStyles.centerContent, { backgroundColor: colors.background }]}>
-        <Text style={commonStyles.text}>Requesting camera permission...</Text>
+        <Text style={commonStyles.text}>{i18n.t('qrScanner.requestingPermission')}</Text>
       </View>
     );
   }
 
-  if (hasPermission === false) {
+  if (hasPermission === false || !BarCodeScanner) {
     return (
       <View style={[commonStyles.centerContent, { backgroundColor: colors.background }]}>
         <Icon name="camera-off" size={64} color={colors.textSecondary} />
-        <Text style={[commonStyles.title, { marginTop: 20 }]}>Camera Access Required</Text>
+        <Text style={[commonStyles.title, { marginTop: 20 }]}>
+          {i18n.t('qrScanner.cameraAccessRequired')}
+        </Text>
         <Text style={[commonStyles.textSecondary, { textAlign: 'center', marginBottom: 20 }]}>
-          Please enable camera access to scan QR codes
+          {i18n.t('qrScanner.enableCameraAccess')}
         </Text>
         <TouchableOpacity style={buttonStyles.primary} onPress={onClose}>
           <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>
-            Go Back
+            {i18n.t('qrScanner.goBack')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -66,7 +88,9 @@ export default function QRScanner({ onScan, onClose }: QRScannerProps) {
         <TouchableOpacity onPress={onClose}>
           <Icon name="close" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[commonStyles.subtitle, { margin: 0 }]}>Scan QR Code</Text>
+        <Text style={[commonStyles.subtitle, { margin: 0 }]}>
+          {i18n.t('qrScanner.title')}
+        </Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -98,7 +122,7 @@ export default function QRScanner({ onScan, onClose }: QRScannerProps) {
           alignItems: 'center',
         }}>
           <Text style={[commonStyles.text, { color: 'white', textAlign: 'center', marginBottom: 20 }]}>
-            Point your camera at the QR code to join the event
+            {i18n.t('qrScanner.pointCamera')}
           </Text>
           
           {scanned && (
@@ -107,7 +131,7 @@ export default function QRScanner({ onScan, onClose }: QRScannerProps) {
               onPress={() => setScanned(false)}
             >
               <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>
-                Scan Again
+                {i18n.t('qrScanner.scanAgain')}
               </Text>
             </TouchableOpacity>
           )}

@@ -1,68 +1,67 @@
 
-import React from 'react';
-import { Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAuth } from '../hooks/useAuth';
-import { useEvents } from '../hooks/useEvents';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import QRScanner from '../components/QRScanner';
+import { useEvents } from '../hooks/useEvents';
+import { useAuth } from '../hooks/useAuth';
+import { commonStyles, colors } from '../styles/commonStyles';
+import i18n from '../config/i18n';
 
 export default function ScanQRScreen() {
   const router = useRouter();
-  const { user } = useAuth();
   const { joinEvent } = useEvents();
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(false);
 
   const handleScan = async (data: string) => {
-    console.log('Scanned QR code:', data);
+    if (loading) return;
     
-    if (!user) {
-      Alert.alert('Error', 'You must be logged in to join an event');
-      router.back();
-      return;
-    }
-
-    // Extract event ID from QR code
-    const eventId = data.split('/').pop();
-    
-    if (!eventId) {
-      Alert.alert('Error', 'Invalid QR code');
-      router.back();
-      return;
-    }
-
+    setLoading(true);
     try {
-      const result = await joinEvent(eventId, user);
+      // Extract event ID from QR code data
+      const eventId = data.replace('aug-event://join/', '');
       
-      if (result.success) {
-        Alert.alert('Success', 'You have joined the event!', [
-          { 
-            text: 'View Event', 
+      if (!user) {
+        Alert.alert(i18n.t('common.error'), 'User not authenticated');
+        return;
+      }
+
+      await joinEvent(eventId, user.id);
+      
+      Alert.alert(
+        i18n.t('common.success'),
+        'Successfully joined the event!',
+        [
+          {
+            text: i18n.t('common.close'),
             onPress: () => {
               router.back();
               router.push(`/event/${eventId}`);
             }
-          },
-          { 
-            text: 'OK', 
-            onPress: () => router.back()
           }
-        ]);
-      } else {
-        Alert.alert('Error', result.error || 'Failed to join event', [
-          { text: 'OK', onPress: () => router.back() }
-        ]);
-      }
-    } catch (error) {
-      console.log('Join event error:', error);
-      Alert.alert('Error', 'Something went wrong', [
-        { text: 'OK', onPress: () => router.back() }
-      ]);
+        ]
+      );
+    } catch (error: any) {
+      console.log('Error joining event:', error);
+      Alert.alert(
+        i18n.t('common.error'),
+        error.message || i18n.t('errors.unknownError'),
+        [{ text: i18n.t('common.close') }]
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
+  const handleClose = () => {
+    router.back();
+  };
+
   return (
-    <QRScanner
-      onScan={handleScan}
-      onClose={() => router.back()}
-    />
+    <SafeAreaView style={[commonStyles.container, { backgroundColor: colors.background }]}>
+      <QRScanner onScan={handleScan} onClose={handleClose} />
+    </SafeAreaView>
   );
 }

@@ -1,9 +1,11 @@
 
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, Keyboard, TouchableWithoutFeedback } from 'react-native';
-import { commonStyles, colors, buttonStyles } from '../styles/commonStyles';
 import { useAuth } from '../hooks/useAuth';
+import { commonStyles, colors, buttonStyles } from '../styles/commonStyles';
 import Icon from './Icon';
+import LanguageSelector from './LanguageSelector';
+import i18n from '../config/i18n';
+import { View, Text, TextInput, TouchableOpacity, Alert, Keyboard, TouchableWithoutFeedback } from 'react-native';
 
 interface AuthFormProps {
   onSuccess: () => void;
@@ -13,48 +15,47 @@ export default function AuthForm({ onSuccess }: AuthFormProps) {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
   const { login, register } = useAuth();
 
   const handleSubmit = async () => {
-    if (!email || !password || (!isLogin && !name)) {
-      Alert.alert('Error', 'Please fill in all fields');
+    if (!email || !password) {
+      Alert.alert(i18n.t('common.error'), 'Please fill in all fields');
       return;
     }
 
-    // Dismiss keyboard before processing
-    Keyboard.dismiss();
-    setIsLoading(true);
-    
-    try {
-      let result;
-      if (isLogin) {
-        result = await login(email, password);
-      } else {
-        result = await register(email, password, name);
-      }
+    if (!isLogin && password !== confirmPassword) {
+      Alert.alert(i18n.t('common.error'), 'Passwords do not match');
+      return;
+    }
 
-      if (result.success) {
-        if (result.message) {
-          // Show email verification message for registration
-          Alert.alert(
-            'Registration Successful', 
-            result.message,
-            [{ text: 'OK', onPress: () => onSuccess() }]
-          );
+    setLoading(true);
+    try {
+      if (isLogin) {
+        const result = await login(email, password);
+        if (result.error) {
+          Alert.alert(i18n.t('common.error'), result.error.message || i18n.t('auth.invalidCredentials'));
         } else {
           onSuccess();
         }
       } else {
-        Alert.alert('Error', result.error || 'Authentication failed');
+        const result = await register(email, password);
+        if (result.error) {
+          Alert.alert(i18n.t('common.error'), result.error.message || 'Registration failed');
+        } else {
+          Alert.alert(
+            i18n.t('auth.emailVerification'),
+            i18n.t('auth.emailVerificationMessage'),
+            [{ text: i18n.t('common.close') }]
+          );
+        }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.log('Auth error:', error);
-      Alert.alert('Error', 'Something went wrong');
+      Alert.alert(i18n.t('common.error'), error.message || i18n.t('errors.unknownError'));
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
@@ -64,75 +65,88 @@ export default function AuthForm({ onSuccess }: AuthFormProps) {
 
   return (
     <TouchableWithoutFeedback onPress={dismissKeyboard}>
-      <View style={[commonStyles.card, { width: '100%', maxWidth: 400 }]}>
-        <View style={{ alignItems: 'center', marginBottom: 24 }}>
-          <Icon name="people-circle" size={64} color={colors.primary} />
-          <Text style={commonStyles.title}>
-            {isLogin ? 'Welcome Back' : 'Join AUG-Event'}
-          </Text>
-          <Text style={commonStyles.textSecondary}>
-            {isLogin ? 'Sign in to your account' : 'Create your account'}
-          </Text>
+      <View style={[commonStyles.container, { justifyContent: 'center' }]}>
+        <View style={[commonStyles.card, { marginHorizontal: 20 }]}>
+          <View style={{ alignItems: 'center', marginBottom: 30 }}>
+            <Text style={[commonStyles.title, { color: colors.primary, fontSize: 32 }]}>
+              AUG-Event
+            </Text>
+            <Text style={[commonStyles.subtitle, { marginTop: 8 }]}>
+              {isLogin ? i18n.t('auth.login') : i18n.t('auth.register')}
+            </Text>
+          </View>
+
+          <View style={{ marginBottom: 20 }}>
+            <Text style={[commonStyles.label, { marginBottom: 8 }]}>
+              {i18n.t('auth.email')}
+            </Text>
+            <TextInput
+              style={commonStyles.input}
+              value={email}
+              onChangeText={setEmail}
+              placeholder={i18n.t('auth.email')}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoComplete="email"
+            />
+          </View>
+
+          <View style={{ marginBottom: 20 }}>
+            <Text style={[commonStyles.label, { marginBottom: 8 }]}>
+              {i18n.t('auth.password')}
+            </Text>
+            <TextInput
+              style={commonStyles.input}
+              value={password}
+              onChangeText={setPassword}
+              placeholder={i18n.t('auth.password')}
+              secureTextEntry
+              autoComplete="password"
+            />
+          </View>
+
+          {!isLogin && (
+            <View style={{ marginBottom: 20 }}>
+              <Text style={[commonStyles.label, { marginBottom: 8 }]}>
+                {i18n.t('auth.confirmPassword')}
+              </Text>
+              <TextInput
+                style={commonStyles.input}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                placeholder={i18n.t('auth.confirmPassword')}
+                secureTextEntry
+                autoComplete="password"
+              />
+            </View>
+          )}
+
+          <TouchableOpacity
+            style={[buttonStyles.primary, { marginBottom: 20 }]}
+            onPress={handleSubmit}
+            disabled={loading}
+          >
+            <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>
+              {loading ? i18n.t('common.loading') : (isLogin ? i18n.t('auth.signIn') : i18n.t('auth.signUp'))}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={{ alignItems: 'center', marginBottom: 20 }}
+            onPress={() => setIsLogin(!isLogin)}
+          >
+            <Text style={[commonStyles.textSecondary, { textAlign: 'center' }]}>
+              {isLogin ? i18n.t('auth.dontHaveAccount') : i18n.t('auth.alreadyHaveAccount')}
+            </Text>
+            <Text style={[commonStyles.text, { color: colors.primary, marginTop: 4 }]}>
+              {isLogin ? i18n.t('auth.signUp') : i18n.t('auth.signIn')}
+            </Text>
+          </TouchableOpacity>
+
+          <View style={{ marginTop: 20 }}>
+            <LanguageSelector />
+          </View>
         </View>
-
-        {!isLogin && (
-          <TextInput
-            style={commonStyles.input}
-            placeholder="Full Name"
-            value={name}
-            onChangeText={setName}
-            autoCapitalize="words"
-            returnKeyType="next"
-            blurOnSubmit={false}
-          />
-        )}
-
-        <TextInput
-          style={commonStyles.input}
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          returnKeyType="next"
-          blurOnSubmit={false}
-        />
-
-        <TextInput
-          style={commonStyles.input}
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          returnKeyType="done"
-          onSubmitEditing={handleSubmit}
-        />
-
-        <TouchableOpacity
-          style={[buttonStyles.primary, { marginBottom: 16 }]}
-          onPress={handleSubmit}
-          disabled={isLoading}
-        >
-          <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>
-            {isLoading ? 'Loading...' : (isLogin ? 'Sign In' : 'Sign Up')}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => {
-            setIsLogin(!isLogin);
-            // Clear form when switching modes
-            setEmail('');
-            setPassword('');
-            setName('');
-            Keyboard.dismiss();
-          }}
-          style={{ alignItems: 'center' }}
-        >
-          <Text style={[commonStyles.textSecondary, { textDecorationLine: 'underline' }]}>
-            {isLogin ? 'Need an account? Sign up' : 'Already have an account? Sign in'}
-          </Text>
-        </TouchableOpacity>
       </View>
     </TouchableWithoutFeedback>
   );

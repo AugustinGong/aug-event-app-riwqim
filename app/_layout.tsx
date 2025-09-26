@@ -7,6 +7,8 @@ import { commonStyles, colors } from '../styles/commonStyles';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuth } from '../hooks/useAuth';
 import { View, Text } from 'react-native';
+import { initializeLanguage } from '../config/i18n';
+import i18n from '../config/i18n';
 
 export default function RootLayout() {
   const { isLoading } = useAuth();
@@ -17,7 +19,11 @@ export default function RootLayout() {
     const initializeApp = async () => {
       try {
         console.log('Initializing AUG-Event app...');
-        // Add any initialization logic here
+        
+        // Initialize language settings
+        await initializeLanguage();
+        console.log('Language initialized:', i18n.locale);
+        
         setIsReady(true);
       } catch (error) {
         console.log('Error initializing app:', error);
@@ -36,7 +42,7 @@ export default function RootLayout() {
             AUG-Event
           </Text>
           <Text style={[commonStyles.subtitle, { marginTop: 8 }]}>
-            Loading...
+            {i18n.t('common.loading')}
           </Text>
         </View>
         <StatusBar style="auto" />

@@ -1,4 +1,6 @@
 
+import { usePhotos } from '../hooks/usePhotos';
+import { commonStyles, colors } from '../styles/commonStyles';
 import React, { useState } from 'react';
 import {
   View,
@@ -11,11 +13,11 @@ import {
   RefreshControl,
   Dimensions,
 } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
-import { usePhotos } from '../hooks/usePhotos';
-import { commonStyles, colors } from '../styles/commonStyles';
 import { User } from '../types';
+import * as ImagePicker from 'expo-image-picker';
 import Icon from './Icon';
+import SimpleBottomSheet from './BottomSheet';
+import i18n from '../config/i18n';
 
 interface PhotoGalleryProps {
   eventId: string;
@@ -25,61 +27,87 @@ interface PhotoGalleryProps {
 }
 
 export default function PhotoGallery({ eventId, user, isOrganizer, canUpload }: PhotoGalleryProps) {
-  const { photos, isLoading, isUploading, loadPhotos, uploadPhoto, deletePhoto, pickImageFromGallery, takePhoto } = usePhotos(eventId);
+  const { photos, loading, loadPhotos, uploadPhoto, deletePhoto } = usePhotos();
   const [refreshing, setRefreshing] = useState(false);
+  const [showUploadSheet, setShowUploadSheet] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const screenWidth = Dimensions.get('window').width;
-  const imageSize = (screenWidth - 48) / 2; // 2 columns with padding
+  const imageSize = (screenWidth - 60) / 2; // 2 columns with padding
+
+  React.useEffect(() => {
+    loadPhotos(eventId);
+  }, [eventId, loadPhotos]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadPhotos();
+    await loadPhotos(eventId);
     setRefreshing(false);
   };
 
   const handlePickImage = async () => {
-    try {
-      const result = await pickImageFromGallery();
-      if (result.success && result.uri) {
-        const uploadResult = await uploadPhoto(result.uri, user.id);
-        if (!uploadResult.success) {
-          Alert.alert('Upload Failed', uploadResult.error || 'Failed to upload photo');
-        }
+    setShowUploadSheet(false);
+    
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setUploading(true);
+      try {
+        await uploadPhoto(eventId, result.assets[0].uri, user);
+        Alert.alert(i18n.t('common.success'), i18n.t('event.photoUploadedSuccess'));
+      } catch (error: any) {
+        console.log('Error uploading photo:', error);
+        Alert.alert(i18n.t('common.error'), error.message || i18n.t('errors.unknownError'));
+      } finally {
+        setUploading(false);
       }
-    } catch (error) {
-      console.log('Error picking image:', error);
-      Alert.alert('Error', 'Failed to pick image');
     }
   };
 
   const handleTakePhoto = async () => {
-    try {
-      const result = await takePhoto();
-      if (result.success && result.uri) {
-        const uploadResult = await uploadPhoto(result.uri, user.id);
-        if (!uploadResult.success) {
-          Alert.alert('Upload Failed', uploadResult.error || 'Failed to upload photo');
-        }
+    setShowUploadSheet(false);
+    
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setUploading(true);
+      try {
+        await uploadPhoto(eventId, result.assets[0].uri, user);
+        Alert.alert(i18n.t('common.success'), i18n.t('event.photoUploadedSuccess'));
+      } catch (error: any) {
+        console.log('Error uploading photo:', error);
+        Alert.alert(i18n.t('common.error'), error.message || i18n.t('errors.unknownError'));
+      } finally {
+        setUploading(false);
       }
-    } catch (error) {
-      console.log('Error taking photo:', error);
-      Alert.alert('Error', 'Failed to take photo');
     }
   };
 
-  const handleDeletePhoto = async (photoId: string) => {
+  const handleDeletePhoto = (photoId: string) => {
     Alert.alert(
-      'Delete Photo',
-      'Are you sure you want to delete this photo?',
+      i18n.t('event.deletePhoto'),
+      i18n.t('event.confirmDeletePhoto'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: i18n.t('common.cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: i18n.t('common.delete'),
           style: 'destructive',
           onPress: async () => {
-            const result = await deletePhoto(photoId, user.id, isOrganizer);
-            if (!result.success) {
-              Alert.alert('Delete Failed', result.error || 'Failed to delete photo');
+            try {
+              await deletePhoto(photoId);
+              Alert.alert(i18n.t('common.success'), i18n.t('event.photoDeletedSuccess'));
+            } catch (error: any) {
+              console.log('Error deleting photo:', error);
+              Alert.alert(i18n.t('common.error'), error.message || i18n.t('errors.unknownError'));
             }
           },
         },
@@ -88,131 +116,107 @@ export default function PhotoGallery({ eventId, user, isOrganizer, canUpload }: 
   };
 
   const showUploadOptions = () => {
-    Alert.alert(
-      'Add Photo',
-      'Choose how you want to add a photo',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Take Photo', onPress: handleTakePhoto },
-        { text: 'Choose from Gallery', onPress: handlePickImage },
-      ]
-    );
+    setShowUploadSheet(true);
   };
 
-  if (isLoading && photos.length === 0) {
+  if (loading && photos.length === 0) {
     return (
-      <View style={[commonStyles.container, commonStyles.centerContent]}>
+      <View style={[commonStyles.centerContent, { flex: 1 }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[commonStyles.subtitle, { marginTop: 16 }]}>
-          Loading photos...
+        <Text style={[commonStyles.textSecondary, { marginTop: 10 }]}>
+          {i18n.t('common.loading')}
         </Text>
       </View>
     );
   }
 
   return (
-    <View style={commonStyles.container}>
+    <View style={{ flex: 1 }}>
       {canUpload && (
-        <TouchableOpacity
-          style={[commonStyles.button, { marginBottom: 16 }]}
-          onPress={showUploadOptions}
-          disabled={isUploading}
-        >
-          {isUploading ? (
-            <ActivityIndicator size="small" color={colors.background} />
-          ) : (
-            <>
-              <Icon name="camera" size={20} color={colors.background} />
-              <Text style={[commonStyles.buttonText, { marginLeft: 8 }]}>
-                Add Photo
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
+        <View style={{ padding: 20, paddingBottom: 10 }}>
+          <TouchableOpacity
+            style={[
+              commonStyles.card,
+              {
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 15,
+                backgroundColor: colors.primaryLight,
+              }
+            ]}
+            onPress={showUploadOptions}
+            disabled={uploading}
+          >
+            {uploading ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <Icon name="camera" size={20} color={colors.primary} />
+            )}
+            <Text style={[commonStyles.text, { color: colors.primary, marginLeft: 10 }]}>
+              {uploading ? i18n.t('common.loading') : i18n.t('event.uploadPhoto')}
+            </Text>
+          </TouchableOpacity>
+        </View>
       )}
 
       <ScrollView
         style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 20, paddingTop: 10 }}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
       >
         {photos.length === 0 ? (
-          <View style={[commonStyles.centerContent, { paddingVertical: 40 }]}>
-            <Icon name="image" size={48} color={colors.textSecondary} />
-            <Text style={[commonStyles.subtitle, { marginTop: 16, textAlign: 'center' }]}>
-              No photos yet
-            </Text>
-            <Text style={[commonStyles.caption, { textAlign: 'center', marginTop: 8 }]}>
-              {canUpload ? 'Be the first to add a photo!' : 'Photos will appear here when guests upload them'}
+          <View style={[commonStyles.centerContent, { marginTop: 50 }]}>
+            <Icon name="image" size={64} color={colors.textSecondary} />
+            <Text style={[commonStyles.title, { marginTop: 20, textAlign: 'center' }]}>
+              {i18n.t('event.noPhotos')}
             </Text>
           </View>
         ) : (
-          <View style={{
-            flexDirection: 'row',
-            flexWrap: 'wrap',
-            justifyContent: 'space-between',
-            paddingBottom: 20,
-          }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
             {photos.map((photo) => (
-              <View
-                key={photo.id}
-                style={{
-                  width: imageSize,
-                  marginBottom: 16,
-                  backgroundColor: colors.surface,
-                  borderRadius: 12,
-                  overflow: 'hidden',
-                  ...commonStyles.shadow,
-                }}
-              >
+              <View key={photo.id} style={{ marginBottom: 20 }}>
                 <Image
                   source={{ uri: photo.url }}
                   style={{
-                    width: '100%',
+                    width: imageSize,
                     height: imageSize,
-                    backgroundColor: colors.border,
+                    borderRadius: 12,
                   }}
-                  resizeMode="cover"
                 />
-                
-                <View style={{ padding: 12 }}>
-                  <View style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
+                <View style={{
+                  position: 'absolute',
+                  bottom: 8,
+                  left: 8,
+                  right: 8,
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}>
+                  <Text style={{
+                    color: 'white',
+                    fontSize: 12,
+                    fontWeight: '600',
+                    backgroundColor: 'rgba(0,0,0,0.6)',
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                    borderRadius: 8,
                   }}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[commonStyles.caption, { color: colors.primary }]}>
-                        {photo.uploader.name}
-                      </Text>
-                      <Text style={[commonStyles.caption, { color: colors.textSecondary, fontSize: 11 }]}>
-                        {photo.uploadedAt.toLocaleDateString()}
-                      </Text>
-                    </View>
-                    
-                    {(isOrganizer || photo.uploadedBy === user.id) && (
-                      <TouchableOpacity
-                        onPress={() => handleDeletePhoto(photo.id)}
-                        style={{
-                          padding: 4,
-                          borderRadius: 4,
-                        }}
-                      >
-                        <Icon name="trash" size={16} color={colors.error} />
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                  
-                  {photo.caption && (
-                    <Text style={[commonStyles.caption, { marginTop: 8 }]}>
-                      {photo.caption}
-                    </Text>
+                    {photo.uploadedBy?.name || 'Unknown'}
+                  </Text>
+                  {(isOrganizer || photo.uploadedBy?.id === user.id) && (
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: 'rgba(255,0,0,0.8)',
+                        padding: 6,
+                        borderRadius: 6,
+                      }}
+                      onPress={() => handleDeletePhoto(photo.id)}
+                    >
+                      <Icon name="trash-2" size={14} color="white" />
+                    </TouchableOpacity>
                   )}
                 </View>
               </View>
@@ -220,6 +224,37 @@ export default function PhotoGallery({ eventId, user, isOrganizer, canUpload }: 
           </View>
         )}
       </ScrollView>
+
+      <SimpleBottomSheet
+        isVisible={showUploadSheet}
+        onClose={() => setShowUploadSheet(false)}
+      >
+        <View style={{ padding: 20 }}>
+          <Text style={[commonStyles.title, { marginBottom: 20, textAlign: 'center' }]}>
+            {i18n.t('event.uploadPhoto')}
+          </Text>
+          
+          <TouchableOpacity
+            style={[commonStyles.card, { flexDirection: 'row', alignItems: 'center', marginBottom: 15 }]}
+            onPress={handleTakePhoto}
+          >
+            <Icon name="camera" size={24} color={colors.primary} />
+            <Text style={[commonStyles.text, { marginLeft: 15 }]}>
+              {i18n.t('event.takePhoto')}
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[commonStyles.card, { flexDirection: 'row', alignItems: 'center' }]}
+            onPress={handlePickImage}
+          >
+            <Icon name="image" size={24} color={colors.primary} />
+            <Text style={[commonStyles.text, { marginLeft: 15 }]}>
+              {i18n.t('event.chooseFromLibrary')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </SimpleBottomSheet>
     </View>
   );
 }

@@ -19,8 +19,9 @@ export interface Event {
   participants: string[];
   qrCode: string;
   isLive: boolean;
+  status?: 'upcoming' | 'active' | 'ended';
   createdAt: Date;
-  expiresAt: Date;
+  expiresAt?: Date;
 }
 
 export interface MenuCourse {

@@ -26,10 +26,10 @@ export const usePhotos = (eventId: string) => {
         .from('photos')
         .select(`
           *,
-          uploader:users!photos_uploader_id_fkey(*)
+          uploader:users!photos_uploaded_by_fkey(*)
         `)
         .eq('event_id', eventId)
-        .order('created_at', { ascending: false });
+        .order('uploaded_at', { ascending: false });
 
       if (error) {
         console.log('Error loading photos:', error);
@@ -41,8 +41,11 @@ export const usePhotos = (eventId: string) => {
         id: photo.id,
         url: photo.url,
         eventId: photo.event_id,
+        uploadedBy: photo.uploaded_by,
         uploader: photo.uploader,
-        createdAt: new Date(photo.created_at),
+        caption: photo.caption,
+        thumbnail: photo.thumbnail,
+        uploadedAt: new Date(photo.uploaded_at),
       }));
 
       setPhotos(formattedPhotos);
@@ -98,8 +101,8 @@ export const usePhotos = (eventId: string) => {
         .insert([{
           url: publicUrl,
           event_id: eventId,
-          uploader_id: user.id,
-          created_at: new Date().toISOString(),
+          uploaded_by: user.id,
+          uploaded_at: new Date().toISOString(),
         }])
         .select()
         .single();

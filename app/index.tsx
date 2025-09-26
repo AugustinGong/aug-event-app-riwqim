@@ -15,13 +15,14 @@ export default function IndexScreen() {
   const [showSupabaseSetup, setShowSupabaseSetup] = useState(false);
 
   useEffect(() => {
-    console.log('Checking Supabase configuration...');
+    console.log('Index screen - checking Supabase configuration...');
     console.log('Supabase configured:', isSupabaseConfigured);
+    console.log('User authenticated:', isAuthenticated);
     
     if (!isSupabaseConfigured) {
       setShowSupabaseSetup(true);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   // Show loading state
   if (isLoading) {
@@ -41,6 +42,7 @@ export default function IndexScreen() {
 
   // Redirect to home if authenticated
   if (isAuthenticated && user) {
+    console.log('User is authenticated, redirecting to home');
     return <Redirect href="/home" />;
   }
 
@@ -81,7 +83,9 @@ export default function IndexScreen() {
             </View>
 
             {/* Auth Form */}
-            <AuthForm onSuccess={() => {}} />
+            <AuthForm onSuccess={(userName) => {
+              console.log('Authentication successful for:', userName);
+            }} />
 
             {/* Footer */}
             <View style={[commonStyles.centerContent, { marginTop: 40 }]}>

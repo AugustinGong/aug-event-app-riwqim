@@ -13,6 +13,7 @@
     "next": "Next",
     "done": "Done",
     "close": "Close",
+    "ok": "OK",
     "retry": "Retry",
     "refresh": "Refresh"
   },
@@ -44,6 +45,37 @@
     "myEvents": "My Events",
     "joinedEvents": "Joined Events"
   },
+
+  "createEvent": {
+    "title": "Create Event",
+    "eventTitle": "Event Title",
+    "eventTitlePlaceholder": "Enter event title",
+    "eventDate": "Event Date",
+    "eventLocation": "Event Location",
+    "eventLocationPlaceholder": "Enter event location",
+    "description": "Description",
+    "descriptionPlaceholder": "Enter event description",
+    "location": "Location",
+    "locationPlaceholder": "Enter event location",
+    "dateTime": "Date & Time",
+    "eventDetails": "Event Details",
+    "menu": "Menu",
+    "addCourse": "Add Course",
+    "addCourses": "Add courses to your menu",
+    "courseName": "Course Name",
+    "courseNamePlaceholder": "Enter course name",
+    "courseDescription": "Description",
+    "courseDescriptionPlaceholder": "Enter course description",
+    "removeCourse": "Remove Course",
+    "createEvent": "Create Event",
+    "eventCreatedSuccess": "Event created successfully!",
+    "fillAllFields": "Please fill in all required fields",
+    "appetizer": "Appetizer",
+    "firstCourse": "First Course",
+    "mainCourse": "Main Course",
+    "dessert": "Dessert",
+    "cake": "Cake"
+  },
   "event": {
     "title": "Event Details",
     "menu": "Menu",
@@ -66,30 +98,22 @@
     "deletePhoto": "Delete Photo",
     "confirmDeletePhoto": "Are you sure you want to delete this photo?",
     "photoDeletedSuccess": "Photo deleted successfully",
-    "photoUploadedSuccess": "Photo uploaded successfully"
-  },
-  "createEvent": {
-    "title": "Create Event",
-    "eventTitle": "Event Title",
-    "eventTitlePlaceholder": "Enter event title",
-    "eventDate": "Event Date",
-    "eventLocation": "Event Location",
-    "eventLocationPlaceholder": "Enter event location",
-    "menu": "Menu",
-    "addCourse": "Add Course",
-    "courseName": "Course Name",
-    "courseNamePlaceholder": "Enter course name",
-    "courseDescription": "Description",
-    "courseDescriptionPlaceholder": "Enter course description",
-    "removeCourse": "Remove Course",
-    "createEventButton": "Create Event",
-    "eventCreatedSuccess": "Event created successfully!",
-    "fillAllFields": "Please fill in all required fields",
-    "appetizer": "Appetizer",
-    "firstCourse": "First Course",
-    "mainCourse": "Main Course",
-    "dessert": "Dessert",
-    "cake": "Cake"
+    "photoUploadedSuccess": "Photo uploaded successfully",
+    "notServed": "Not served yet",
+    "alreadyServed": "Already served",
+    "tapToNotify": "Tap to notify participants",
+    "sendNotificationDescription": "Send notifications when courses are ready",
+    "waitingForNotifications": "Waiting for notifications",
+    "notificationsDescription": "The organizer will send notifications when courses are ready",
+    "qrCodeOrganizerOnly": "QR Code Access",
+    "qrCodeDescription": "Only the organizer can view and share the QR code",
+    "courses": {
+      "appetizer": "Appetizer",
+      "first": "First Course",
+      "main": "Main Course",
+      "dessert": "Dessert",
+      "cake": "Cake"
+    }
   },
   "qrScanner": {
     "title": "Scan QR Code",
@@ -100,7 +124,16 @@
     "pointCamera": "Point your camera at the QR code to join the event",
     "scanAgain": "Scan Again",
     "invalidQRCode": "Invalid QR Code",
-    "invalidQRCodeMessage": "This is not a valid AUG-Event QR code"
+    "invalidQRCodeMessage": "This is not a valid AUG-Event QR code",
+    "scanToJoin": "Scan QR Code to Join Event",
+    "scanDescription": "Point your camera at an event QR code to join",
+    "startScanning": "Start Scanning"
+  },
+  "scanQR": {
+    "title": "Scan QR Code",
+    "scanToJoin": "Scan QR Code to Join Event",
+    "scanDescription": "Point your camera at an event QR code to join",
+    "startScanning": "Start Scanning"
   },
   "notifications": {
     "courseNotifications": "Course Notifications",

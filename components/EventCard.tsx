@@ -24,13 +24,13 @@ export default function EventCard({ event, onPress, isOrganizer }: EventCardProp
   };
 
   const getStatusColor = () => {
-    if (event.status === 'active') return colors.success;
+    if (event.status === 'active' || event.isLive) return colors.success;
     if (event.status === 'ended') return colors.textSecondary;
     return colors.primary;
   };
 
   const getStatusText = () => {
-    if (event.status === 'active') return i18n.t('event.eventStarted');
+    if (event.status === 'active' || event.isLive) return i18n.t('event.eventStarted');
     if (event.status === 'ended') return i18n.t('event.eventEnded');
     return 'Upcoming';
   };

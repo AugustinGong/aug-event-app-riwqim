@@ -64,7 +64,7 @@ export const useNotifications = () => {
         .from('notifications')
         .select('*')
         .eq('event_id', eventId)
-        .order('created_at', { ascending: false });
+        .order('sent_at', { ascending: false });
 
       if (error) {
         console.log('Error loading notifications:', error);
@@ -74,9 +74,11 @@ export const useNotifications = () => {
       const formattedNotifications: AppNotification[] = (data || []).map((notification: any) => ({
         id: notification.id,
         eventId: notification.event_id,
+        title: notification.title,
         message: notification.message,
         type: notification.type,
-        createdAt: new Date(notification.created_at),
+        data: notification.data,
+        sentAt: new Date(notification.sent_at),
       }));
 
       setNotifications(formattedNotifications);
@@ -100,9 +102,10 @@ export const useNotifications = () => {
         .from('notifications')
         .insert([{
           event_id: eventId,
+          title: 'AUG-Event',
           message,
           type,
-          created_at: new Date().toISOString(),
+          sent_at: new Date().toISOString(),
         }])
         .select()
         .single();

@@ -3,10 +3,12 @@ import { StyleSheet, ViewStyle, TextStyle } from 'react-native';
 
 export const colors = {
   primary: '#8B5CF6',      // Violet
+  primaryLight: '#C4B5FD', // Light Violet
   secondary: '#A78BFA',    // Light Violet
   accent: '#93C5FD',       // Light Blue
   background: '#FFFFFF',   // White
   backgroundAlt: '#F8FAFC', // Very Light Gray
+  cardBackground: '#F9FAFB', // Very Light Gray
   text: '#1F2937',         // Dark Gray
   textSecondary: '#6B7280', // Medium Gray
   card: '#FFFFFF',         // White
@@ -25,7 +27,10 @@ export const buttonStyles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    boxShadow: `0px 4px 12px ${colors.shadow}`,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
     elevation: 4,
   },
   secondary: {
@@ -35,7 +40,10 @@ export const buttonStyles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    boxShadow: `0px 2px 8px ${colors.shadow}`,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
     elevation: 2,
   },
   outline: {
@@ -98,6 +106,24 @@ export const commonStyles = StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: 20,
   },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  caption: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: colors.textSecondary,
+    lineHeight: 16,
+  },
   section: {
     marginBottom: 24,
   },
@@ -106,7 +132,10 @@ export const commonStyles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
-    boxShadow: `0px 4px 12px ${colors.shadow}`,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
     elevation: 4,
     borderWidth: 1,
     borderColor: colors.border,
@@ -116,7 +145,10 @@ export const commonStyles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    boxShadow: `0px 2px 8px ${colors.shadow}`,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
     elevation: 2,
     borderWidth: 1,
     borderColor: colors.border,

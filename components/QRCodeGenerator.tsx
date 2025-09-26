@@ -34,7 +34,10 @@ export default function QRCodeGenerator({ event }: QRCodeGeneratorProps) {
           backgroundColor: 'white',
           padding: 20,
           borderRadius: 16,
-          boxShadow: `0px 4px 12px ${colors.shadow}`,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.1,
+          shadowRadius: 12,
           elevation: 4,
         }}>
           <QRCode
@@ -50,7 +53,7 @@ export default function QRCodeGenerator({ event }: QRCodeGeneratorProps) {
         Share this QR code with guests to let them join your event
       </Text>
       
-      <TouchableOpacity style={buttonStyles.secondary} onPress={handleShare}>
+      <TouchableOpacity style={buttonStyles.primary} onPress={handleShare}>
         <View style={commonStyles.centerRow}>
           <Icon name="share" size={20} color="white" />
           <Text style={{ color: 'white', fontSize: 16, fontWeight: '600', marginLeft: 8 }}>

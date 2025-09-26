@@ -6,11 +6,11 @@ import Icon from './Icon';
 import i18n from '../config/i18n';
 
 interface QRScannerProps {
-  onScan: (data: string) => void;
-  onClose: () => void;
+  onBarCodeScanned: (data: { data: string }) => void;
+  onCancel: () => void;
 }
 
-export default function QRScanner({ onScan, onClose }: QRScannerProps) {
+export default function QRScanner({ onBarCodeScanned, onCancel }: QRScannerProps) {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
   const [BarCodeScanner, setBarCodeScanner] = useState<any>(null);
@@ -32,7 +32,7 @@ export default function QRScanner({ onScan, onClose }: QRScannerProps) {
           Platform.OS === 'web' 
             ? 'Camera scanning is not supported on web. Please use a mobile device.'
             : 'Camera scanning is not available on this device.',
-          [{ text: i18n.t('common.close'), onPress: onClose }]
+          [{ text: i18n.t('common.close'), onPress: onCancel }]
         );
       }
     };
@@ -44,8 +44,8 @@ export default function QRScanner({ onScan, onClose }: QRScannerProps) {
     setScanned(true);
     console.log('QR Code scanned:', data);
     
-    if (data.includes('aug-event://join/')) {
-      onScan(data);
+    if (data.includes('aug-event://')) {
+      onBarCodeScanned({ data });
     } else {
       Alert.alert(
         i18n.t('qrScanner.invalidQRCode'), 
@@ -73,7 +73,7 @@ export default function QRScanner({ onScan, onClose }: QRScannerProps) {
         <Text style={[commonStyles.textSecondary, { textAlign: 'center', marginBottom: 20 }]}>
           {i18n.t('qrScanner.enableCameraAccess')}
         </Text>
-        <TouchableOpacity style={buttonStyles.primary} onPress={onClose}>
+        <TouchableOpacity style={buttonStyles.primary} onPress={onCancel}>
           <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>
             {i18n.t('qrScanner.goBack')}
           </Text>
@@ -85,7 +85,7 @@ export default function QRScanner({ onScan, onClose }: QRScannerProps) {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <View style={commonStyles.header}>
-        <TouchableOpacity onPress={onClose}>
+        <TouchableOpacity onPress={onCancel}>
           <Icon name="close" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={[commonStyles.subtitle, { margin: 0 }]}>

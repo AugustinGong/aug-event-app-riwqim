@@ -1,51 +1,80 @@
 
-import PhotoGallery from '../../components/PhotoGallery';
-import Icon from '../../components/Icon';
 import React, { useState, useEffect, useCallback } from 'react';
-import { useEvents } from '../../hooks/useEvents';
+import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNotifications } from '../../hooks/useNotifications';
 import { useAuth } from '../../hooks/useAuth';
+import { useEvents } from '../../hooks/useEvents';
+import { useNotifications } from '../../hooks/useNotifications';
 import { Event } from '../../types';
-import QRCodeGenerator from '../../components/QRCodeGenerator';
 import { commonStyles, colors, buttonStyles } from '../../styles/commonStyles';
-import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import Icon from '../../components/Icon';
+import PhotoGallery from '../../components/PhotoGallery';
+import QRCodeGenerator from '../../components/QRCodeGenerator';
 import i18n from '../../config/i18n';
+import { Redirect } from 'expo-router';
 
 type TabType = 'menu' | 'notifications' | 'album' | 'qr';
 
 export default function EventDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const { user } = useAuth();
-  const { events, loadEvent, updateEvent } = useEvents();
-  const { notifications, loadNotifications, sendNotification } = useNotifications();
   const router = useRouter();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { user, isAuthenticated, isLoading } = useAuth();
+  const { events, getEventById, updateEventStatus } = useEvents();
+  const { sendNotification } = useNotifications();
+  
+  // Redirect to login if not authenticated
+  if (!isLoading && !isAuthenticated) {
+    console.log('User not authenticated, redirecting to login');
+    return <Redirect href="/" />;
+  }
+
+  // Show loading if still checking authentication
+  if (isLoading) {
+    return (
+      <SafeAreaView style={[commonStyles.container, commonStyles.centerContent]}>
+        <Text style={[commonStyles.subtitle]}>
+          {i18n.t('common.loading')}
+        </Text>
+      </SafeAreaView>
+    );
+  }
+
   const [activeTab, setActiveTab] = useState<TabType>('menu');
   const [event, setEvent] = useState<Event | null>(null);
 
   const loadEventData = useCallback(async () => {
-    if (id) {
-      await loadEvent(id);
-      await loadNotifications(id);
+    if (!id) return;
+    
+    try {
+      const existingEvent = events.find(e => e.id === id);
+      if (existingEvent) {
+        setEvent(existingEvent);
+      } else {
+        // Load event data if not in cache
+        const eventData = await getEventById(id);
+        if (eventData) {
+          setEvent(eventData);
+        } else {
+          Alert.alert(i18n.t('common.error'), 'Event not found');
+          router.back();
+        }
+      }
+    } catch (error) {
+      console.log('Error loading event:', error);
+      Alert.alert(i18n.t('common.error'), 'Failed to load event');
+      router.back();
     }
-  }, [id, loadEvent, loadNotifications]);
+  }, [id, events, getEventById]);
 
   useEffect(() => {
     loadEventData();
   }, [loadEventData]);
 
-  useEffect(() => {
-    const foundEvent = events.find(e => e.id === id);
-    if (foundEvent) {
-      setEvent(foundEvent);
-    }
-  }, [events, id]);
-
   if (!event || !user) {
     return (
       <SafeAreaView style={[commonStyles.container, commonStyles.centerContent]}>
-        <Text style={commonStyles.text}>{i18n.t('common.loading')}</Text>
+        <Text style={commonStyles.subtitle}>Loading event...</Text>
       </SafeAreaView>
     );
   }
@@ -54,44 +83,31 @@ export default function EventDetailScreen() {
 
   const handleToggleEventStatus = async () => {
     try {
-      const newStatus = event.status === 'active' ? 'ended' : 'active';
-      await updateEvent(event.id, { status: newStatus });
-      
-      if (newStatus === 'active') {
-        await sendNotification(event.id, `${event.title} has started!`, 'event_start');
-      } else {
-        await sendNotification(event.id, `${event.title} has ended. Thank you for joining!`, 'event_end');
-      }
+      const newStatus = event.isLive ? 'upcoming' : 'active';
+      await updateEventStatus(event.id, newStatus);
+      setEvent({ ...event, isLive: !event.isLive, status: newStatus });
     } catch (error: any) {
-      console.log('Error updating event status:', error);
-      Alert.alert(i18n.t('common.error'), error.message || i18n.t('errors.unknownError'));
+      Alert.alert(i18n.t('common.error'), error.message || 'Failed to update event status');
     }
   };
 
   const handleMarkCourseServed = async (courseId: string) => {
     try {
-      const updatedMenu = event.menu.map(course => 
-        course.id === courseId ? { ...course, served: !course.served } : course
-      );
-      
-      await updateEvent(event.id, { menu: updatedMenu });
-      
+      // Find the course
       const course = event.menu.find(c => c.id === courseId);
-      if (course && !course.served) {
-        const courseMessages = {
-          appetizer: i18n.t('notifications.appetizerReady'),
-          first: i18n.t('notifications.firstCourseReady'),
-          main: i18n.t('notifications.mainCourseReady'),
-          dessert: i18n.t('notifications.dessertReady'),
-          cake: i18n.t('notifications.cakeTime'),
-        };
-        
-        const message = courseMessages[course.type] || `${course.name} is ready!`;
-        await sendNotification(event.id, message, 'course');
-      }
+      if (!course) return;
+
+      // Send notification to all participants
+      await sendNotification(event.id, `${course.name} is ready!`, 'course_ready');
+      
+      // Update local state (in a real app, you'd update the database)
+      const updatedMenu = event.menu.map(c => 
+        c.id === courseId ? { ...c, isServed: true } : c
+      );
+      setEvent({ ...event, menu: updatedMenu });
+      
     } catch (error: any) {
-      console.log('Error updating course:', error);
-      Alert.alert(i18n.t('common.error'), error.message || i18n.t('errors.unknownError'));
+      Alert.alert(i18n.t('common.error'), error.message || 'Failed to mark course as served');
     }
   };
 
@@ -99,75 +115,122 @@ export default function EventDetailScreen() {
     switch (activeTab) {
       case 'menu':
         return (
-          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }}>
-            {event.menu.length === 0 ? (
-              <View style={[commonStyles.centerContent, { marginTop: 50 }]}>
-                <Icon name="utensils" size={64} color={colors.textSecondary} />
-                <Text style={[commonStyles.title, { marginTop: 20, textAlign: 'center' }]}>
-                  No menu items
-                </Text>
-              </View>
-            ) : (
-              event.menu.map((course) => (
-                <View key={course.id} style={[commonStyles.card, { marginBottom: 15 }]}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                    <Text style={[commonStyles.subtitle, { color: course.served ? colors.success : colors.text }]}>
+          <View style={{ padding: 20 }}>
+            <Text style={[commonStyles.sectionTitle, { marginBottom: 20 }]}>
+              {i18n.t('event.menu')}
+            </Text>
+            
+            {event.menu.map((course) => (
+              <View key={course.id} style={[commonStyles.card, { marginBottom: 15 }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[commonStyles.subtitle, { color: colors.primary, marginBottom: 4 }]}>
                       {course.name}
                     </Text>
-                    {isOrganizer && (
-                      <TouchableOpacity
-                        style={[
-                          buttonStyles.secondary,
-                          { 
-                            backgroundColor: course.served ? colors.success : colors.primaryLight,
-                            paddingHorizontal: 12,
-                            paddingVertical: 6,
-                          }
-                        ]}
-                        onPress={() => handleMarkCourseServed(course.id)}
-                      >
-                        <Text style={{ 
-                          color: course.served ? 'white' : colors.primary, 
-                          fontSize: 12, 
-                          fontWeight: '600' 
-                        }}>
-                          {course.served ? i18n.t('event.served') : i18n.t('event.markServed')}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                  {course.description && (
-                    <Text style={[commonStyles.textSecondary, { marginTop: 5 }]}>
-                      {course.description}
+                    <Text style={[commonStyles.caption, { color: colors.textSecondary, marginBottom: 8 }]}>
+                      {i18n.t(`event.courses.${course.type}`)}
                     </Text>
+                    {course.description && (
+                      <Text style={[commonStyles.text, { marginBottom: 12 }]}>
+                        {course.description}
+                      </Text>
+                    )}
+                    
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Icon 
+                        name={course.isServed ? "check-circle" : "clock"} 
+                        size={16} 
+                        color={course.isServed ? colors.success : colors.textSecondary} 
+                      />
+                      <Text style={[
+                        commonStyles.caption, 
+                        { 
+                          marginLeft: 6,
+                          color: course.isServed ? colors.success : colors.textSecondary 
+                        }
+                      ]}>
+                        {course.isServed ? i18n.t('event.served') : i18n.t('event.notServed')}
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  {isOrganizer && !course.isServed && (
+                    <TouchableOpacity
+                      style={[buttonStyles.secondary, { paddingHorizontal: 12, paddingVertical: 6 }]}
+                      onPress={() => handleMarkCourseServed(course.id)}
+                    >
+                      <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '600' }}>
+                        {i18n.t('event.markServed')}
+                      </Text>
+                    </TouchableOpacity>
                   )}
                 </View>
-              ))
-            )}
-          </ScrollView>
+              </View>
+            ))}
+          </View>
         );
 
       case 'notifications':
         return (
-          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }}>
-            {notifications.length === 0 ? (
+          <View style={{ padding: 20 }}>
+            <Text style={[commonStyles.sectionTitle, { marginBottom: 20 }]}>
+              {i18n.t('event.notifications')}
+            </Text>
+            
+            {isOrganizer ? (
+              <View>
+                <Text style={[commonStyles.textSecondary, { marginBottom: 20 }]}>
+                  {i18n.t('event.sendNotificationDescription')}
+                </Text>
+                
+                {event.menu.map((course) => (
+                  <TouchableOpacity
+                    key={course.id}
+                    style={[
+                      commonStyles.card,
+                      { 
+                        marginBottom: 15,
+                        opacity: course.isServed ? 0.5 : 1,
+                      }
+                    ]}
+                    onPress={() => {
+                      if (!course.isServed) {
+                        handleMarkCourseServed(course.id);
+                      }
+                    }}
+                    disabled={course.isServed}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Icon name="bell" size={20} color={colors.primary} />
+                      <View style={{ marginLeft: 12, flex: 1 }}>
+                        <Text style={[commonStyles.subtitle, { marginBottom: 4 }]}>
+                          {course.name}
+                        </Text>
+                        <Text style={[commonStyles.caption, { color: colors.textSecondary }]}>
+                          {course.isServed ? i18n.t('event.alreadyServed') : i18n.t('event.tapToNotify')}
+                        </Text>
+                      </View>
+                      <Icon 
+                        name={course.isServed ? "check" : "chevron-right"} 
+                        size={16} 
+                        color={colors.textSecondary} 
+                      />
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : (
               <View style={[commonStyles.centerContent, { marginTop: 50 }]}>
                 <Icon name="bell" size={64} color={colors.textSecondary} />
                 <Text style={[commonStyles.title, { marginTop: 20, textAlign: 'center' }]}>
-                  {i18n.t('event.noNotifications')}
+                  {i18n.t('event.waitingForNotifications')}
+                </Text>
+                <Text style={[commonStyles.textSecondary, { textAlign: 'center', marginTop: 8 }]}>
+                  {i18n.t('event.notificationsDescription')}
                 </Text>
               </View>
-            ) : (
-              notifications.map((notification) => (
-                <View key={notification.id} style={[commonStyles.card, { marginBottom: 15 }]}>
-                  <Text style={commonStyles.text}>{notification.message}</Text>
-                  <Text style={[commonStyles.textSecondary, { marginTop: 5, fontSize: 12 }]}>
-                    {notification.createdAt.toLocaleString()}
-                  </Text>
-                </View>
-              ))
             )}
-          </ScrollView>
+          </View>
         );
 
       case 'album':
@@ -176,14 +239,30 @@ export default function EventDetailScreen() {
             eventId={event.id}
             user={user}
             isOrganizer={isOrganizer}
-            canUpload={event.status === 'active'}
+            canUpload={true}
           />
         );
 
       case 'qr':
         return (
-          <View style={{ flex: 1, padding: 20 }}>
-            <QRCodeGenerator eventId={event.id} />
+          <View style={{ padding: 20 }}>
+            <Text style={[commonStyles.sectionTitle, { marginBottom: 20 }]}>
+              {i18n.t('event.qrCode')}
+            </Text>
+            
+            {isOrganizer ? (
+              <QRCodeGenerator event={event} />
+            ) : (
+              <View style={[commonStyles.centerContent, { marginTop: 50 }]}>
+                <Icon name="qr-code" size={64} color={colors.textSecondary} />
+                <Text style={[commonStyles.title, { marginTop: 20, textAlign: 'center' }]}>
+                  {i18n.t('event.qrCodeOrganizerOnly')}
+                </Text>
+                <Text style={[commonStyles.textSecondary, { textAlign: 'center', marginTop: 8 }]}>
+                  {i18n.t('event.qrCodeDescription')}
+                </Text>
+              </View>
+            )}
           </View>
         );
 
@@ -192,106 +271,76 @@ export default function EventDetailScreen() {
     }
   };
 
+  const tabs = [
+    { id: 'menu' as TabType, name: i18n.t('event.menu'), icon: 'utensils' },
+    { id: 'notifications' as TabType, name: i18n.t('event.notifications'), icon: 'bell' },
+    { id: 'album' as TabType, name: i18n.t('event.album'), icon: 'image' },
+    { id: 'qr' as TabType, name: i18n.t('event.qrCode'), icon: 'qr-code' },
+  ];
+
   return (
     <SafeAreaView style={[commonStyles.container, { backgroundColor: colors.background }]}>
-      <View style={commonStyles.header}>
+      <View style={[commonStyles.header, { paddingHorizontal: 20 }]}>
         <TouchableOpacity onPress={() => router.back()}>
           <Icon name="arrow-left" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[commonStyles.subtitle, { margin: 0 }]}>
-          {event.title}
-        </Text>
-        <View style={{ width: 24 }} />
-      </View>
-
-      <View style={{ padding: 20, paddingBottom: 0 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
-          <Icon name="calendar" size={16} color={colors.textSecondary} />
-          <Text style={[commonStyles.textSecondary, { marginLeft: 8 }]}>
-            {event.date.toLocaleDateString()} at {event.date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        <View style={{ flex: 1, marginLeft: 16 }}>
+          <Text style={[commonStyles.title, { color: colors.primary }]} numberOfLines={1}>
+            {event.title}
+          </Text>
+          <Text style={[commonStyles.caption, { color: colors.textSecondary }]}>
+            {event.date.toLocaleDateString()} • {event.location}
           </Text>
         </View>
-        
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
-          <Icon name="map-pin" size={16} color={colors.textSecondary} />
-          <Text style={[commonStyles.textSecondary, { marginLeft: 8 }]}>
-            {event.location}
-          </Text>
-        </View>
-
         {isOrganizer && (
-          <TouchableOpacity
-            style={[
-              buttonStyles.primary,
-              { 
-                backgroundColor: event.status === 'active' ? colors.error : colors.success,
-                marginBottom: 20,
-              }
-            ]}
-            onPress={handleToggleEventStatus}
-          >
-            <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>
-              {event.status === 'active' ? i18n.t('event.endEvent') : i18n.t('event.startEvent')}
-            </Text>
+          <TouchableOpacity onPress={handleToggleEventStatus}>
+            <Icon 
+              name={event.isLive ? "pause" : "play"} 
+              size={24} 
+              color={event.isLive ? colors.error : colors.success} 
+            />
           </TouchableOpacity>
         )}
-
-        {event.status === 'active' && (
-          <View style={[commonStyles.card, { backgroundColor: colors.successLight, marginBottom: 20 }]}>
-            <Text style={[commonStyles.text, { color: colors.success, textAlign: 'center' }]}>
-              {i18n.t('event.eventStarted')}
-            </Text>
-          </View>
-        )}
-
-        {event.status === 'ended' && (
-          <View style={[commonStyles.card, { backgroundColor: colors.errorLight, marginBottom: 20 }]}>
-            <Text style={[commonStyles.text, { color: colors.error, textAlign: 'center' }]}>
-              {i18n.t('event.eventEnded')}
-            </Text>
-          </View>
-        )}
       </View>
 
-      <View style={{ flexDirection: 'row', paddingHorizontal: 20, marginBottom: 10 }}>
-        {[
-          { key: 'menu' as TabType, label: i18n.t('event.menu'), icon: 'utensils' },
-          { key: 'notifications' as TabType, label: i18n.t('event.notifications'), icon: 'bell' },
-          { key: 'album' as TabType, label: i18n.t('event.album'), icon: 'image' },
-          { key: 'qr' as TabType, label: i18n.t('event.qrCode'), icon: 'qr-code' },
-        ].map((tab) => (
+      <View style={{ flexDirection: 'row', paddingHorizontal: 20, marginBottom: 20 }}>
+        {tabs.map((tab) => (
           <TouchableOpacity
-            key={tab.key}
+            key={tab.id}
             style={[
-              buttonStyles.secondary,
               {
                 flex: 1,
-                marginHorizontal: 2,
-                backgroundColor: activeTab === tab.key ? colors.primary : colors.cardBackground,
-                paddingVertical: 8,
+                paddingVertical: 12,
+                paddingHorizontal: 8,
+                alignItems: 'center',
+                borderBottomWidth: 2,
+                borderBottomColor: activeTab === tab.id ? colors.primary : 'transparent',
               }
             ]}
-            onPress={() => setActiveTab(tab.key)}
+            onPress={() => setActiveTab(tab.id)}
           >
             <Icon 
               name={tab.icon} 
-              size={16} 
-              color={activeTab === tab.key ? 'white' : colors.primary} 
+              size={20} 
+              color={activeTab === tab.id ? colors.primary : colors.textSecondary} 
             />
-            <Text style={{
-              color: activeTab === tab.key ? 'white' : colors.primary,
-              fontSize: 12,
-              fontWeight: '600',
-              marginTop: 4,
-              textAlign: 'center',
-            }}>
-              {tab.label}
+            <Text style={[
+              commonStyles.caption,
+              { 
+                marginTop: 4,
+                color: activeTab === tab.id ? colors.primary : colors.textSecondary,
+                fontWeight: activeTab === tab.id ? '600' : '400',
+              }
+            ]}>
+              {tab.name}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      {renderTabContent()}
+      <ScrollView style={{ flex: 1 }}>
+        {renderTabContent()}
+      </ScrollView>
     </SafeAreaView>
   );
 }

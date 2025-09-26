@@ -40,12 +40,15 @@ export const useEvents = () => {
         description: event.description,
         date: new Date(event.date),
         location: event.location,
+        organizerId: event.organizer_id,
         organizer: event.organizer,
-        status: event.status,
+        status: event.status || 'upcoming',
         qrCode: event.qr_code,
+        isLive: event.is_live || false,
         menu: event.menu || [],
         participants: event.participants || [],
         createdAt: new Date(event.created_at),
+        expiresAt: event.expires_at ? new Date(event.expires_at) : undefined,
       }));
 
       setEvents(formattedEvents);
@@ -67,15 +70,23 @@ export const useEvents = () => {
     date: Date;
     location: string;
     menu: MenuCourse[];
-    organizerId: string;
   }) => {
     if (!isSupabaseConfigured) {
-      throw new Error('Supabase is not configured. Please set up your Supabase connection first.');
+      return { success: false, error: 'Supabase is not configured. Please set up your Supabase connection first.' };
     }
 
     try {
       console.log('Creating event:', eventData.title);
 
+      // Get current user from auth
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        return { success: false, error: 'User not authenticated' };
+      }
+
+      // Generate QR code data
+      const qrCodeData = `aug-event://${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
       const { data, error } = await supabase
         .from('events')
         .insert([{
@@ -83,18 +94,38 @@ export const useEvents = () => {
           description: eventData.description,
           date: eventData.date.toISOString(),
           location: eventData.location,
-          menu: eventData.menu,
-          organizer_id: eventData.organizerId,
+          organizer_id: user.id,
+          qr_code: qrCodeData,
           status: 'upcoming',
-          participants: [],
-          created_at: new Date().toISOString(),
+          is_live: false,
+          expires_at: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(), // 180 days from now
         }])
         .select()
         .single();
 
       if (error) {
         console.log('Error creating event:', error);
-        throw error;
+        return { success: false, error: error.message };
+      }
+
+      // Create menu courses
+      if (eventData.menu.length > 0) {
+        const { error: menuError } = await supabase
+          .from('menu_courses')
+          .insert(
+            eventData.menu.map(course => ({
+              event_id: data.id,
+              name: course.name,
+              type: course.type,
+              description: course.description,
+              is_served: false,
+            }))
+          );
+
+        if (menuError) {
+          console.log('Error creating menu courses:', menuError);
+          // Don't fail the whole operation for menu course errors
+        }
       }
 
       console.log('Event created successfully:', data.id);
@@ -102,10 +133,10 @@ export const useEvents = () => {
       // Reload events to get the updated list
       await loadEvents();
       
-      return data;
+      return { success: true, event: data };
     } catch (error: any) {
       console.log('Error creating event:', error);
-      throw error;
+      return { success: false, error: error.message || 'Failed to create event' };
     }
   };
 
@@ -138,12 +169,15 @@ export const useEvents = () => {
         description: data.description,
         date: new Date(data.date),
         location: data.location,
+        organizerId: data.organizer_id,
         organizer: data.organizer,
-        status: data.status,
+        status: data.status || 'upcoming',
         qrCode: data.qr_code,
+        isLive: data.is_live || false,
         menu: data.menu || [],
         participants: data.participants || [],
         createdAt: new Date(data.created_at),
+        expiresAt: data.expires_at ? new Date(data.expires_at) : undefined,
       };
 
       return event;

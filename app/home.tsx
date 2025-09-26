@@ -10,13 +10,31 @@ import EventCard from '../components/EventCard';
 import LanguageSelector from '../components/LanguageSelector';
 import i18n from '../config/i18n';
 import { View, Text, TouchableOpacity, ScrollView, RefreshControl, Alert } from 'react-native';
+import { Redirect } from 'expo-router';
 
 export default function HomeScreen() {
-  const { user, logout } = useAuth();
+  const { user, logout, isAuthenticated, isLoading } = useAuth();
   const { events, loading, loadEvents } = useEvents();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
+
+  // Redirect to login if not authenticated
+  if (!isLoading && !isAuthenticated) {
+    console.log('User not authenticated, redirecting to login');
+    return <Redirect href="/" />;
+  }
+
+  // Show loading if still checking authentication
+  if (isLoading) {
+    return (
+      <SafeAreaView style={[commonStyles.container, commonStyles.centerContent]}>
+        <Text style={[commonStyles.subtitle]}>
+          {i18n.t('common.loading')}
+        </Text>
+      </SafeAreaView>
+    );
+  }
 
   useEffect(() => {
     // Show welcome message for new sessions
@@ -48,10 +66,11 @@ export default function HomeScreen() {
           text: i18n.t('auth.logout'),
           style: 'destructive',
           onPress: async () => {
+            console.log('User confirmed logout');
             const result = await logout();
             if (result.success) {
-              // Navigation will be handled automatically by the auth state change
-              console.log('Logout successful');
+              console.log('Logout successful, redirecting to login');
+              // The navigation will be handled automatically by the auth state change in _layout.tsx
             } else {
               Alert.alert(i18n.t('common.error'), result.error || 'Logout failed');
             }

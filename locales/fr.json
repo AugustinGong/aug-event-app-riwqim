@@ -13,6 +13,7 @@
     "next": "Suivant",
     "done": "Terminé",
     "close": "Fermer",
+    "ok": "OK",
     "retry": "Réessayer",
     "refresh": "Actualiser"
   },
@@ -44,6 +45,37 @@
     "myEvents": "Mes Événements",
     "joinedEvents": "Événements Rejoints"
   },
+
+  "createEvent": {
+    "title": "Créer un Événement",
+    "eventTitle": "Titre de l'Événement",
+    "eventTitlePlaceholder": "Entrez le titre de l'événement",
+    "eventDate": "Date de l'Événement",
+    "eventLocation": "Lieu de l'Événement",
+    "eventLocationPlaceholder": "Entrez le lieu de l'événement",
+    "description": "Description",
+    "descriptionPlaceholder": "Entrez la description de l'événement",
+    "location": "Lieu",
+    "locationPlaceholder": "Entrez le lieu de l'événement",
+    "dateTime": "Date et Heure",
+    "eventDetails": "Détails de l'Événement",
+    "menu": "Menu",
+    "addCourse": "Ajouter un Plat",
+    "addCourses": "Ajoutez des plats à votre menu",
+    "courseName": "Nom du Plat",
+    "courseNamePlaceholder": "Entrez le nom du plat",
+    "courseDescription": "Description",
+    "courseDescriptionPlaceholder": "Entrez la description du plat",
+    "removeCourse": "Supprimer le Plat",
+    "createEvent": "Créer l'Événement",
+    "eventCreatedSuccess": "Événement créé avec succès !",
+    "fillAllFields": "Veuillez remplir tous les champs obligatoires",
+    "appetizer": "Apéritif",
+    "firstCourse": "Entrée",
+    "mainCourse": "Plat Principal",
+    "dessert": "Dessert",
+    "cake": "Gâteau"
+  },
   "event": {
     "title": "Détails de l'Événement",
     "menu": "Menu",
@@ -66,30 +98,22 @@
     "deletePhoto": "Supprimer la Photo",
     "confirmDeletePhoto": "Êtes-vous sûr de vouloir supprimer cette photo ?",
     "photoDeletedSuccess": "Photo supprimée avec succès",
-    "photoUploadedSuccess": "Photo téléchargée avec succès"
-  },
-  "createEvent": {
-    "title": "Créer un Événement",
-    "eventTitle": "Titre de l'Événement",
-    "eventTitlePlaceholder": "Entrez le titre de l'événement",
-    "eventDate": "Date de l'Événement",
-    "eventLocation": "Lieu de l'Événement",
-    "eventLocationPlaceholder": "Entrez le lieu de l'événement",
-    "menu": "Menu",
-    "addCourse": "Ajouter un Plat",
-    "courseName": "Nom du Plat",
-    "courseNamePlaceholder": "Entrez le nom du plat",
-    "courseDescription": "Description",
-    "courseDescriptionPlaceholder": "Entrez la description du plat",
-    "removeCourse": "Supprimer le Plat",
-    "createEventButton": "Créer l'Événement",
-    "eventCreatedSuccess": "Événement créé avec succès !",
-    "fillAllFields": "Veuillez remplir tous les champs obligatoires",
-    "appetizer": "Apéritif",
-    "firstCourse": "Entrée",
-    "mainCourse": "Plat Principal",
-    "dessert": "Dessert",
-    "cake": "Gâteau"
+    "photoUploadedSuccess": "Photo téléchargée avec succès",
+    "notServed": "Pas encore servi",
+    "alreadyServed": "Déjà servi",
+    "tapToNotify": "Appuyez pour notifier les participants",
+    "sendNotificationDescription": "Envoyez des notifications quand les plats sont prêts",
+    "waitingForNotifications": "En attente de notifications",
+    "notificationsDescription": "L'organisateur enverra des notifications quand les plats sont prêts",
+    "qrCodeOrganizerOnly": "Accès Code QR",
+    "qrCodeDescription": "Seul l'organisateur peut voir et partager le code QR",
+    "courses": {
+      "appetizer": "Apéritif",
+      "first": "Entrée",
+      "main": "Plat Principal",
+      "dessert": "Dessert",
+      "cake": "Gâteau"
+    }
   },
   "qrScanner": {
     "title": "Scanner le Code QR",
@@ -100,7 +124,16 @@
     "pointCamera": "Pointez votre caméra sur le code QR pour rejoindre l'événement",
     "scanAgain": "Scanner à Nouveau",
     "invalidQRCode": "Code QR Invalide",
-    "invalidQRCodeMessage": "Ce n'est pas un code QR AUG-Event valide"
+    "invalidQRCodeMessage": "Ce n'est pas un code QR AUG-Event valide",
+    "scanToJoin": "Scanner le Code QR pour Rejoindre l'Événement",
+    "scanDescription": "Pointez votre caméra sur un code QR d'événement pour rejoindre",
+    "startScanning": "Commencer le Scan"
+  },
+  "scanQR": {
+    "title": "Scanner le Code QR",
+    "scanToJoin": "Scanner le Code QR pour Rejoindre l'Événement",
+    "scanDescription": "Pointez votre caméra sur un code QR d'événement pour rejoindre",
+    "startScanning": "Commencer le Scan"
   },
   "notifications": {
     "courseNotifications": "Notifications de Plats",

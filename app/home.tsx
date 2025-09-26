@@ -18,18 +18,19 @@ export default function HomeScreen() {
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
 
-  // Redirect to login if not authenticated
-  if (!isLoading && !isAuthenticated) {
-    console.log('User not authenticated, redirecting to login');
-    return <Redirect href="/" />;
-  }
-
+  // Move useEffect to the top level, before any conditional logic
   useEffect(() => {
     if (user) {
       console.log('User authenticated, loading events for:', user.email);
       loadEvents();
     }
   }, [user, loadEvents]);
+
+  // Redirect to login if not authenticated
+  if (!isLoading && !isAuthenticated) {
+    console.log('User not authenticated, redirecting to login');
+    return <Redirect href="/" />;
+  }
 
   // Show loading if still checking authentication
   if (isLoading) {

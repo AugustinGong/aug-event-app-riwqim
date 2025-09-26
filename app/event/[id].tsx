@@ -27,12 +27,7 @@ export default function EventDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('menu');
 
-  // Redirect to login if not authenticated
-  if (!isLoading && !isAuthenticated) {
-    console.log('User not authenticated, redirecting to login');
-    return <Redirect href="/" />;
-  }
-
+  // Move all hooks to the top level, before any conditional logic
   const loadEventData = useCallback(async () => {
     if (!id || !isAuthenticated) return;
     
@@ -53,6 +48,12 @@ export default function EventDetailScreen() {
   useEffect(() => {
     loadEventData();
   }, [loadEventData]);
+
+  // Redirect to login if not authenticated
+  if (!isLoading && !isAuthenticated) {
+    console.log('User not authenticated, redirecting to login');
+    return <Redirect href="/" />;
+  }
 
   // Show loading if still checking authentication or loading event
   if (isLoading || loading) {

@@ -13,8 +13,8 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { usePhotos } from '../hooks/usePhotos';
-import { User } from '../types';
 import { commonStyles, colors } from '../styles/commonStyles';
+import { User } from '../types';
 import Icon from './Icon';
 
 interface PhotoGalleryProps {
@@ -24,57 +24,27 @@ interface PhotoGalleryProps {
   canUpload: boolean;
 }
 
-const { width } = Dimensions.get('window');
-const photoSize = (width - 60) / 3; // 3 photos per row with margins
+export default function PhotoGallery({ eventId, user, isOrganizer, canUpload }: PhotoGalleryProps) {
+  const { photos, isLoading, isUploading, loadPhotos, uploadPhoto, deletePhoto, pickImageFromGallery, takePhoto } = usePhotos(eventId);
+  const [refreshing, setRefreshing] = useState(false);
 
-const PhotoGallery: React.FC<PhotoGalleryProps> = ({
-  eventId,
-  user,
-  isOrganizer,
-  canUpload,
-}) => {
-  const { photos, isLoading, isUploading, uploadPhoto, deletePhoto, refreshPhotos } = usePhotos(eventId);
-  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const screenWidth = Dimensions.get('window').width;
+  const imageSize = (screenWidth - 48) / 2; // 2 columns with padding
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadPhotos();
+    setRefreshing(false);
+  };
 
   const handlePickImage = async () => {
     try {
-      // Request permission
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
-      if (permissionResult.granted === false) {
-        Alert.alert('Permission Required', 'Permission to access camera roll is required!');
-        return;
-      }
-
-      // Pick image
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        const imageUri = result.assets[0].uri;
-        
-        // Show caption input
-        Alert.prompt(
-          'Add Caption',
-          'Enter a caption for your photo (optional)',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Upload',
-              onPress: async (caption) => {
-                const uploadResult = await uploadPhoto(imageUri, user, caption);
-                if (!uploadResult.success) {
-                  Alert.alert('Upload Failed', uploadResult.error || 'Failed to upload photo');
-                }
-              },
-            },
-          ],
-          'plain-text'
-        );
+      const result = await pickImageFromGallery();
+      if (result.success && result.uri) {
+        const uploadResult = await uploadPhoto(result.uri, user.id);
+        if (!uploadResult.success) {
+          Alert.alert('Upload Failed', uploadResult.error || 'Failed to upload photo');
+        }
       }
     } catch (error) {
       console.log('Error picking image:', error);
@@ -84,42 +54,12 @@ const PhotoGallery: React.FC<PhotoGalleryProps> = ({
 
   const handleTakePhoto = async () => {
     try {
-      // Request permission
-      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-      
-      if (permissionResult.granted === false) {
-        Alert.alert('Permission Required', 'Permission to access camera is required!');
-        return;
-      }
-
-      // Take photo
-      const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        const imageUri = result.assets[0].uri;
-        
-        // Show caption input
-        Alert.prompt(
-          'Add Caption',
-          'Enter a caption for your photo (optional)',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Upload',
-              onPress: async (caption) => {
-                const uploadResult = await uploadPhoto(imageUri, user, caption);
-                if (!uploadResult.success) {
-                  Alert.alert('Upload Failed', uploadResult.error || 'Failed to upload photo');
-                }
-              },
-            },
-          ],
-          'plain-text'
-        );
+      const result = await takePhoto();
+      if (result.success && result.uri) {
+        const uploadResult = await uploadPhoto(result.uri, user.id);
+        if (!uploadResult.success) {
+          Alert.alert('Upload Failed', uploadResult.error || 'Failed to upload photo');
+        }
       }
     } catch (error) {
       console.log('Error taking photo:', error);
@@ -127,7 +67,7 @@ const PhotoGallery: React.FC<PhotoGalleryProps> = ({
     }
   };
 
-  const handleDeletePhoto = (photoId: string) => {
+  const handleDeletePhoto = async (photoId: string) => {
     Alert.alert(
       'Delete Photo',
       'Are you sure you want to delete this photo?',
@@ -154,156 +94,132 @@ const PhotoGallery: React.FC<PhotoGalleryProps> = ({
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Take Photo', onPress: handleTakePhoto },
-        { text: 'Choose from Library', onPress: handlePickImage },
+        { text: 'Choose from Gallery', onPress: handlePickImage },
       ]
     );
   };
 
-  if (isLoading) {
+  if (isLoading && photos.length === 0) {
     return (
-      <View style={[commonStyles.container, commonStyles.centered]}>
+      <View style={[commonStyles.container, commonStyles.centerContent]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[commonStyles.text, { marginTop: 16 }]}>Loading photos...</Text>
+        <Text style={[commonStyles.subtitle, { marginTop: 16 }]}>
+          Loading photos...
+        </Text>
       </View>
     );
   }
 
   return (
     <View style={commonStyles.container}>
-      {/* Upload Button */}
       {canUpload && (
-        <View style={{ padding: 16 }}>
-          <TouchableOpacity
-            style={[
-              commonStyles.button,
-              { 
-                backgroundColor: colors.primary,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }
-            ]}
-            onPress={showUploadOptions}
-            disabled={isUploading}
-          >
-            {isUploading ? (
-              <ActivityIndicator size="small" color="white" />
-            ) : (
-              <>
-                <Icon name="camera" size={20} color="white" />
-                <Text style={[commonStyles.buttonText, { marginLeft: 8 }]}>
-                  Add Photo
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={[commonStyles.button, { marginBottom: 16 }]}
+          onPress={showUploadOptions}
+          disabled={isUploading}
+        >
+          {isUploading ? (
+            <ActivityIndicator size="small" color={colors.background} />
+          ) : (
+            <>
+              <Icon name="camera" size={20} color={colors.background} />
+              <Text style={[commonStyles.buttonText, { marginLeft: 8 }]}>
+                Add Photo
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
       )}
 
-      {/* Photo Grid */}
       <ScrollView
         style={{ flex: 1 }}
         refreshControl={
           <RefreshControl
-            refreshing={isLoading}
-            onRefresh={refreshPhotos}
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[colors.primary]}
             tintColor={colors.primary}
           />
         }
       >
         {photos.length === 0 ? (
-          <View style={[commonStyles.centered, { padding: 40 }]}>
-            <Icon name="image" size={64} color={colors.textSecondary} />
-            <Text style={[commonStyles.text, { marginTop: 16, textAlign: 'center' }]}>
+          <View style={[commonStyles.centerContent, { paddingVertical: 40 }]}>
+            <Icon name="image" size={48} color={colors.textSecondary} />
+            <Text style={[commonStyles.subtitle, { marginTop: 16, textAlign: 'center' }]}>
               No photos yet
             </Text>
-            {canUpload && (
-              <Text style={[commonStyles.textSecondary, { marginTop: 8, textAlign: 'center' }]}>
-                Be the first to share a moment!
-              </Text>
-            )}
+            <Text style={[commonStyles.caption, { textAlign: 'center', marginTop: 8 }]}>
+              {canUpload ? 'Be the first to add a photo!' : 'Photos will appear here when guests upload them'}
+            </Text>
           </View>
         ) : (
           <View style={{
             flexDirection: 'row',
             flexWrap: 'wrap',
-            padding: 16,
             justifyContent: 'space-between',
+            paddingBottom: 20,
           }}>
             {photos.map((photo) => (
-              <TouchableOpacity
+              <View
                 key={photo.id}
                 style={{
-                  width: photoSize,
-                  height: photoSize,
+                  width: imageSize,
                   marginBottom: 16,
-                  borderRadius: 8,
-                  overflow: 'hidden',
                   backgroundColor: colors.surface,
-                }}
-                onPress={() => setSelectedPhoto(photo.id)}
-                onLongPress={() => {
-                  if (isOrganizer || photo.uploadedBy === user.id) {
-                    handleDeletePhoto(photo.id);
-                  }
+                  borderRadius: 12,
+                  overflow: 'hidden',
+                  ...commonStyles.shadow,
                 }}
               >
                 <Image
                   source={{ uri: photo.url }}
-                  style={{ width: '100%', height: '100%' }}
+                  style={{
+                    width: '100%',
+                    height: imageSize,
+                    backgroundColor: colors.border,
+                  }}
                   resizeMode="cover"
                 />
                 
-                {/* Photo Info Overlay */}
-                <View style={{
-                  position: 'absolute',
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  backgroundColor: 'rgba(0,0,0,0.7)',
-                  padding: 4,
-                }}>
-                  <Text style={{
-                    color: 'white',
-                    fontSize: 10,
-                    fontWeight: '500',
+                <View style={{ padding: 12 }}>
+                  <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
                   }}>
-                    {photo.uploader.name}
-                  </Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[commonStyles.caption, { color: colors.primary }]}>
+                        {photo.uploader.name}
+                      </Text>
+                      <Text style={[commonStyles.caption, { color: colors.textSecondary, fontSize: 11 }]}>
+                        {photo.uploadedAt.toLocaleDateString()}
+                      </Text>
+                    </View>
+                    
+                    {(isOrganizer || photo.uploadedBy === user.id) && (
+                      <TouchableOpacity
+                        onPress={() => handleDeletePhoto(photo.id)}
+                        style={{
+                          padding: 4,
+                          borderRadius: 4,
+                        }}
+                      >
+                        <Icon name="trash" size={16} color={colors.error} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  
                   {photo.caption && (
-                    <Text style={{
-                      color: 'white',
-                      fontSize: 9,
-                      opacity: 0.8,
-                    }} numberOfLines={1}>
+                    <Text style={[commonStyles.caption, { marginTop: 8 }]}>
                       {photo.caption}
                     </Text>
                   )}
                 </View>
-
-                {/* Delete indicator for organizer */}
-                {isOrganizer && (
-                  <View style={{
-                    position: 'absolute',
-                    top: 4,
-                    right: 4,
-                    backgroundColor: 'rgba(255,0,0,0.8)',
-                    borderRadius: 12,
-                    width: 24,
-                    height: 24,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}>
-                    <Icon name="trash" size={12} color="white" />
-                  </View>
-                )}
-              </TouchableOpacity>
+              </View>
             ))}
           </View>
         )}
       </ScrollView>
     </View>
   );
-};
-
-export default PhotoGallery;
+}

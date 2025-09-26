@@ -1,70 +1,52 @@
 
-import React, { useEffect, useState } from 'react';
-import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, Text } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Stack } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { useAuth } from '../hooks/useAuth';
+import React, { useEffect, useState } from 'react';
 import { commonStyles, colors } from '../styles/commonStyles';
-import FirebaseSetup from '../components/FirebaseSetup';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useAuth } from '../hooks/useAuth';
+import { View, Text } from 'react-native';
 
 export default function RootLayout() {
   const { isLoading } = useAuth();
-  const [showFirebaseSetup, setShowFirebaseSetup] = useState(false);
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    // Check if Firebase is properly configured
-    const checkFirebaseConfig = () => {
+    // Initialize app
+    const initializeApp = async () => {
       try {
-        // This is a simple check - in a real app you might want to test actual Firebase connectivity
-        const config = require('../config/firebase');
-        
-        // Check if the default config values are still present
-        if (config.auth && config.db && config.storage) {
-          console.log('Firebase configuration detected');
-          setShowFirebaseSetup(false);
-        } else {
-          console.log('Firebase configuration incomplete');
-          setShowFirebaseSetup(true);
-        }
+        console.log('Initializing AUG-Event app...');
+        // Add any initialization logic here
+        setIsReady(true);
       } catch (error) {
-        console.log('Firebase configuration error:', error);
-        setShowFirebaseSetup(true);
+        console.log('Error initializing app:', error);
+        setIsReady(true);
       }
     };
 
-    checkFirebaseConfig();
+    initializeApp();
   }, []);
 
-  if (isLoading) {
+  if (!isReady || isLoading) {
     return (
       <SafeAreaProvider>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <View style={[commonStyles.container, commonStyles.centered]}>
-            <Text style={commonStyles.text}>Loading...</Text>
-          </View>
-          <StatusBar style="auto" />
-        </GestureHandlerRootView>
-      </SafeAreaProvider>
-    );
-  }
-
-  // Show Firebase setup if configuration is incomplete
-  if (showFirebaseSetup) {
-    return (
-      <SafeAreaProvider>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <FirebaseSetup />
-          <StatusBar style="auto" />
-        </GestureHandlerRootView>
+        <View style={[commonStyles.container, commonStyles.centerContent]}>
+          <Text style={[commonStyles.title, { color: colors.primary }]}>
+            AUG-Event
+          </Text>
+          <Text style={[commonStyles.subtitle, { marginTop: 8 }]}>
+            Loading...
+          </Text>
+        </View>
+        <StatusBar style="auto" />
       </SafeAreaProvider>
     );
   }
 
   return (
-    <SafeAreaProvider>
-      <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
         <Stack
           screenOptions={{
             headerShown: false,
@@ -78,7 +60,7 @@ export default function RootLayout() {
           <Stack.Screen name="event/[id]" />
         </Stack>
         <StatusBar style="auto" />
-      </GestureHandlerRootView>
-    </SafeAreaProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

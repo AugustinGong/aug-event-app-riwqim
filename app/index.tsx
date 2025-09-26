@@ -1,43 +1,89 @@
 
-import React, { useEffect } from 'react';
-import { View, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Redirect } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
-import { commonStyles } from '../styles/commonStyles';
+import { commonStyles, colors } from '../styles/commonStyles';
 import AuthForm from '../components/AuthForm';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import SupabaseSetup from '../components/SupabaseSetup';
+import Icon from '../components/Icon';
 
 export default function IndexScreen() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isLoading, isAuthenticated } = useAuth();
+  const [isSupabaseConfigured, setIsSupabaseConfigured] = useState(false);
 
+  useEffect(() => {
+    // Check if Supabase is properly configured
+    const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+    
+    console.log('Checking Supabase configuration...');
+    console.log('Supabase URL configured:', !!supabaseUrl);
+    console.log('Supabase Anon Key configured:', !!supabaseAnonKey);
+    
+    setIsSupabaseConfigured(!!(supabaseUrl && supabaseAnonKey));
+  }, []);
+
+  // Show loading state
   if (isLoading) {
     return (
-      <SafeAreaView style={commonStyles.container}>
-        <View style={commonStyles.centerContent}>
-          {/* Loading spinner could go here */}
-        </View>
+      <SafeAreaView style={[commonStyles.container, commonStyles.centerContent]}>
+        <Icon name="loader" size={48} color={colors.primary} />
+        <Text style={[commonStyles.subtitle, { marginTop: 16 }]}>
+          Loading...
+        </Text>
       </SafeAreaView>
     );
   }
 
-  if (isAuthenticated) {
+  // Redirect to home if authenticated
+  if (isAuthenticated && user) {
     return <Redirect href="/home" />;
   }
 
+  // Show Supabase setup if not configured
+  if (!isSupabaseConfigured) {
+    return (
+      <SafeAreaView style={commonStyles.container}>
+        <SupabaseSetup />
+      </SafeAreaView>
+    );
+  }
+
+  // Show authentication form
   return (
     <SafeAreaView style={commonStyles.container}>
-      <KeyboardAvoidingView 
-        style={commonStyles.container}
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        style={{ flex: 1 }}
       >
-        <ScrollView 
-          contentContainerStyle={commonStyles.centerContent}
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1 }}
           keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          bounces={false}
         >
-          <AuthForm onSuccess={() => {}} />
+          <View style={[commonStyles.container, { justifyContent: 'center', padding: 20 }]}>
+            {/* Header */}
+            <View style={[commonStyles.centerContent, { marginBottom: 40 }]}>
+              <Icon name="calendar" size={64} color={colors.primary} />
+              <Text style={[commonStyles.title, { marginTop: 16, fontSize: 32 }]}>
+                AUG-Event
+              </Text>
+              <Text style={[commonStyles.subtitle, { textAlign: 'center', marginTop: 8 }]}>
+                Create and join memorable dining events
+              </Text>
+            </View>
+
+            {/* Auth Form */}
+            <AuthForm onSuccess={() => {}} />
+
+            {/* Footer */}
+            <View style={[commonStyles.centerContent, { marginTop: 40 }]}>
+              <Text style={[commonStyles.caption, { textAlign: 'center' }]}>
+                Share moments, create memories
+              </Text>
+            </View>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

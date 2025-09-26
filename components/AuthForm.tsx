@@ -5,7 +5,7 @@ import { commonStyles, colors, buttonStyles } from '../styles/commonStyles';
 import Icon from './Icon';
 import LanguageSelector from './LanguageSelector';
 import i18n from '../config/i18n';
-import { View, Text, TextInput, TouchableOpacity, Alert, Keyboard, TouchableWithoutFeedback } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, Keyboard, TouchableWithoutFeedback, Image } from 'react-native';
 
 interface AuthFormProps {
   onSuccess: () => void;
@@ -34,21 +34,25 @@ export default function AuthForm({ onSuccess }: AuthFormProps) {
     try {
       if (isLogin) {
         const result = await login(email, password);
-        if (result.error) {
-          Alert.alert(i18n.t('common.error'), result.error.message || i18n.t('auth.invalidCredentials'));
-        } else {
+        if (result.success) {
           onSuccess();
+        } else {
+          Alert.alert(i18n.t('common.error'), result.error || i18n.t('auth.invalidCredentials'));
         }
       } else {
         const result = await register(email, password);
-        if (result.error) {
-          Alert.alert(i18n.t('common.error'), result.error.message || 'Registration failed');
+        if (result.success) {
+          if (result.message) {
+            Alert.alert(
+              i18n.t('auth.emailVerification'),
+              result.message,
+              [{ text: i18n.t('common.close') }]
+            );
+          } else {
+            onSuccess();
+          }
         } else {
-          Alert.alert(
-            i18n.t('auth.emailVerification'),
-            i18n.t('auth.emailVerificationMessage'),
-            [{ text: i18n.t('common.close') }]
-          );
+          Alert.alert(i18n.t('common.error'), result.error || 'Registration failed');
         }
       }
     } catch (error: any) {
@@ -68,10 +72,7 @@ export default function AuthForm({ onSuccess }: AuthFormProps) {
       <View style={[commonStyles.container, { justifyContent: 'center' }]}>
         <View style={[commonStyles.card, { marginHorizontal: 20 }]}>
           <View style={{ alignItems: 'center', marginBottom: 30 }}>
-            <Text style={[commonStyles.title, { color: colors.primary, fontSize: 32 }]}>
-              AUG-Event
-            </Text>
-            <Text style={[commonStyles.subtitle, { marginTop: 8 }]}>
+            <Text style={[commonStyles.title, { color: colors.primary, fontSize: 28 }]}>
               {isLogin ? i18n.t('auth.login') : i18n.t('auth.register')}
             </Text>
           </View>

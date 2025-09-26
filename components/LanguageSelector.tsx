@@ -48,20 +48,29 @@ export default function LanguageSelector({ onLanguageChange }: LanguageSelectorP
   return (
     <>
       <TouchableOpacity
-        style={[buttonStyles.secondary, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
+        style={[
+          buttonStyles.secondary, 
+          { 
+            flexDirection: 'row', 
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            paddingVertical: 12,
+            paddingHorizontal: 16
+          }
+        ]}
         onPress={() => setIsVisible(true)}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Icon name="language" size={20} color={colors.primary} />
-          <Text style={[commonStyles.text, { marginLeft: 12 }]}>
+          <Icon name="language" size={18} color={colors.primary} />
+          <Text style={[commonStyles.text, { marginLeft: 10, fontSize: 14 }]}>
             {i18n.t('settings.language')}
           </Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={[commonStyles.textSecondary, { marginRight: 8 }]}>
+          <Text style={[commonStyles.textSecondary, { marginRight: 6, fontSize: 14 }]}>
             {getCurrentLanguageName()}
           </Text>
-          <Icon name="chevron-right" size={16} color={colors.textSecondary} />
+          <Icon name="chevron-right" size={14} color={colors.textSecondary} />
         </View>
       </TouchableOpacity>
 

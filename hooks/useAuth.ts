@@ -133,7 +133,7 @@ export const useAuth = () => {
     }
   };
 
-  const register = async (email: string, password: string, name: string) => {
+  const register = async (email: string, password: string, name?: string) => {
     if (!isSupabaseConfigured) {
       return { success: false, error: 'Supabase is not configured. Please set up your Supabase connection first.' };
     }
@@ -148,7 +148,7 @@ export const useAuth = () => {
         options: {
           emailRedirectTo: 'https://natively.dev/email-confirmed',
           data: {
-            name: name,
+            name: name || email.split('@')[0],
           }
         }
       });

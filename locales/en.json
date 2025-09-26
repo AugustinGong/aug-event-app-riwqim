@@ -31,7 +31,8 @@
     "emailVerification": "Email Verification Required",
     "emailVerificationMessage": "Please check your email and click the verification link to complete your registration.",
     "invalidCredentials": "Invalid email or password",
-    "emailNotConfirmed": "Please verify your email before signing in"
+    "emailNotConfirmed": "Please verify your email before signing in",
+    "logoutConfirmation": "Are you sure you want to logout?"
   },
   "home": {
     "title": "AUG-Event",

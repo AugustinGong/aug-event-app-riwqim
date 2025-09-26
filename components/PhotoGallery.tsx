@@ -53,6 +53,7 @@ export default function PhotoGallery({ eventId, user, isOrganizer, canUpload }: 
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
+      allowsMultipleSelection: false,
     });
 
     if (!result.canceled && result.assets[0]) {
@@ -76,6 +77,7 @@ export default function PhotoGallery({ eventId, user, isOrganizer, canUpload }: 
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
     });
 
     if (!result.canceled && result.assets[0]) {

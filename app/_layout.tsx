@@ -18,7 +18,7 @@ export default function RootLayout() {
     // Initialize app
     const initializeApp = async () => {
       try {
-        console.log('Initializing AUG-Event app...');
+        console.log('Initializing AUG-Event app v2...');
         
         // Initialize language settings
         await initializeLanguage();

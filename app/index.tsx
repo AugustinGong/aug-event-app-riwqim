@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Redirect } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
@@ -27,7 +27,11 @@ export default function IndexScreen() {
   if (isLoading) {
     return (
       <SafeAreaView style={[commonStyles.container, commonStyles.centerContent]}>
-        <Icon name="loader" size={48} color={colors.primary} />
+        <Image
+          source={require('../assets/images/40355e5b-3b1c-4cfa-836d-28026524860b.jpeg')}
+          style={{ width: 64, height: 64, borderRadius: 16 }}
+          resizeMode="contain"
+        />
         <Text style={[commonStyles.subtitle, { marginTop: 16 }]}>
           Loading...
         </Text>
@@ -63,7 +67,11 @@ export default function IndexScreen() {
           <View style={[commonStyles.container, { justifyContent: 'center', padding: 20 }]}>
             {/* Header */}
             <View style={[commonStyles.centerContent, { marginBottom: 40 }]}>
-              <Icon name="calendar" size={64} color={colors.primary} />
+              <Image
+                source={require('../assets/images/40355e5b-3b1c-4cfa-836d-28026524860b.jpeg')}
+                style={{ width: 120, height: 120, borderRadius: 24 }}
+                resizeMode="contain"
+              />
               <Text style={[commonStyles.title, { marginTop: 16, fontSize: 32 }]}>
                 AUG-Event
               </Text>

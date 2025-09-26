@@ -9,7 +9,7 @@ import { commonStyles, colors, buttonStyles } from '../styles/commonStyles';
 import EventCard from '../components/EventCard';
 import LanguageSelector from '../components/LanguageSelector';
 import i18n from '../config/i18n';
-import { View, Text, TouchableOpacity, ScrollView, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, RefreshControl, Alert } from 'react-native';
 
 export default function HomeScreen() {
   const { user, logout } = useAuth();
@@ -21,6 +21,29 @@ export default function HomeScreen() {
     setRefreshing(true);
     await loadEvents();
     setRefreshing(false);
+  };
+
+  const handleLogout = async () => {
+    Alert.alert(
+      i18n.t('auth.logout'),
+      i18n.t('auth.logoutConfirmation'),
+      [
+        {
+          text: i18n.t('common.cancel'),
+          style: 'cancel',
+        },
+        {
+          text: i18n.t('auth.logout'),
+          style: 'destructive',
+          onPress: async () => {
+            const result = await logout();
+            if (!result.success) {
+              Alert.alert(i18n.t('common.error'), result.error || 'Logout failed');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const myEvents = events.filter(event => event.organizerId === user?.id);
@@ -37,7 +60,7 @@ export default function HomeScreen() {
             {i18n.t('home.subtitle')}
           </Text>
         </View>
-        <TouchableOpacity onPress={logout}>
+        <TouchableOpacity onPress={handleLogout}>
           <Icon name="log-out" size={24} color={colors.text} />
         </TouchableOpacity>
       </View>

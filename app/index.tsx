@@ -4,6 +4,7 @@ import { View, Text, KeyboardAvoidingView, Platform, ScrollView } from 'react-na
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Redirect } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
+import { isSupabaseConfigured } from '../config/supabase';
 import { commonStyles, colors } from '../styles/commonStyles';
 import AuthForm from '../components/AuthForm';
 import SupabaseSetup from '../components/SupabaseSetup';
@@ -11,18 +12,15 @@ import Icon from '../components/Icon';
 
 export default function IndexScreen() {
   const { user, isLoading, isAuthenticated } = useAuth();
-  const [isSupabaseConfigured, setIsSupabaseConfigured] = useState(false);
+  const [showSupabaseSetup, setShowSupabaseSetup] = useState(false);
 
   useEffect(() => {
-    // Check if Supabase is properly configured
-    const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-    
     console.log('Checking Supabase configuration...');
-    console.log('Supabase URL configured:', !!supabaseUrl);
-    console.log('Supabase Anon Key configured:', !!supabaseAnonKey);
+    console.log('Supabase configured:', isSupabaseConfigured);
     
-    setIsSupabaseConfigured(!!(supabaseUrl && supabaseAnonKey));
+    if (!isSupabaseConfigured) {
+      setShowSupabaseSetup(true);
+    }
   }, []);
 
   // Show loading state
@@ -43,7 +41,7 @@ export default function IndexScreen() {
   }
 
   // Show Supabase setup if not configured
-  if (!isSupabaseConfigured) {
+  if (showSupabaseSetup) {
     return (
       <SafeAreaView style={commonStyles.container}>
         <SupabaseSetup />

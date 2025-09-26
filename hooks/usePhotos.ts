@@ -1,61 +1,56 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../config/supabase';
-import { Photo, User } from '../types';
+import { supabase, isSupabaseConfigured } from '../config/supabase';
 import * as ImagePicker from 'expo-image-picker';
+import { Photo, User } from '../types';
 
 export const usePhotos = (eventId: string) => {
   const [photos, setPhotos] = useState<Photo[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadPhotos = useCallback(async () => {
-    if (!eventId) return;
-    
-    try {
-      setIsLoading(true);
-      setError(null);
-      console.log('Loading photos for event:', eventId);
+    if (!isSupabaseConfigured) {
+      console.log('Supabase not configured, using mock photos');
+      setPhotos([]);
+      setLoading(false);
+      return;
+    }
 
-      const { data: photosData, error: photosError } = await supabase
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { data, error } = await supabase
         .from('photos')
         .select(`
           *,
-          uploader:users!photos_uploaded_by_fkey(*)
+          uploader:users!photos_uploader_id_fkey(*)
         `)
         .eq('event_id', eventId)
-        .order('uploaded_at', { ascending: false });
+        .order('created_at', { ascending: false });
 
-      if (photosError) {
-        console.log('Error loading photos:', photosError);
-        throw photosError;
+      if (error) {
+        console.log('Error loading photos:', error);
+        setError(error.message);
+        return;
       }
 
-      const formattedPhotos: Photo[] = (photosData || []).map(photoData => ({
-        id: photoData.id,
-        eventId: photoData.event_id,
-        uploadedBy: photoData.uploaded_by,
-        uploader: {
-          id: photoData.uploader.id,
-          email: photoData.uploader.email,
-          name: photoData.uploader.name,
-          avatar: photoData.uploader.avatar,
-          createdAt: new Date(photoData.uploader.created_at),
-        },
-        url: photoData.url,
-        thumbnail: photoData.thumbnail,
-        caption: photoData.caption,
-        uploadedAt: new Date(photoData.uploaded_at),
+      const formattedPhotos: Photo[] = (data || []).map((photo: any) => ({
+        id: photo.id,
+        url: photo.url,
+        eventId: photo.event_id,
+        uploader: photo.uploader,
+        createdAt: new Date(photo.created_at),
       }));
 
       setPhotos(formattedPhotos);
-      console.log('Loaded photos:', formattedPhotos.length);
-    } catch (error: any) {
-      console.log('Error in loadPhotos:', error);
-      setError(error.message || 'Failed to load photos');
+    } catch (err: any) {
+      console.log('Error loading photos:', err);
+      setError(err.message || 'Failed to load photos');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   }, [eventId]);
 
@@ -63,28 +58,28 @@ export const usePhotos = (eventId: string) => {
     loadPhotos();
   }, [loadPhotos]);
 
-  const uploadPhoto = async (imageUri: string, userId: string, caption?: string) => {
+  const uploadPhoto = async (imageUri: string, user: User) => {
+    if (!isSupabaseConfigured) {
+      throw new Error('Supabase is not configured. Please set up your Supabase connection first.');
+    }
+
     try {
-      setIsUploading(true);
-      setError(null);
+      setUploading(true);
       console.log('Uploading photo for event:', eventId);
 
-      // Create form data for upload
-      const formData = new FormData();
-      const filename = `${eventId}/${Date.now()}.jpg`;
-      
-      // Convert image URI to blob
+      // Create a unique filename
+      const fileName = `${eventId}/${user.id}/${Date.now()}.jpg`;
+
+      // Convert image to blob
       const response = await fetch(imageUri);
       const blob = await response.blob();
-      
-      formData.append('file', blob as any, filename);
 
       // Upload to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('event-photos')
-        .upload(filename, blob, {
+        .from('photos')
+        .upload(fileName, blob, {
           contentType: 'image/jpeg',
-          upsert: false
+          upsert: false,
         });
 
       if (uploadError) {
@@ -93,129 +88,105 @@ export const usePhotos = (eventId: string) => {
       }
 
       // Get public URL
-      const { data: urlData } = supabase.storage
-        .from('event-photos')
-        .getPublicUrl(uploadData.path);
+      const { data: { publicUrl } } = supabase.storage
+        .from('photos')
+        .getPublicUrl(fileName);
 
       // Save photo record to database
-      const { data: photoData, error: photoError } = await supabase
+      const { data: photoData, error: dbError } = await supabase
         .from('photos')
         .insert([{
+          url: publicUrl,
           event_id: eventId,
-          uploaded_by: userId,
-          url: urlData.publicUrl,
-          caption: caption,
+          uploader_id: user.id,
+          created_at: new Date().toISOString(),
         }])
-        .select(`
-          *,
-          uploader:users!photos_uploaded_by_fkey(*)
-        `)
+        .select()
         .single();
 
-      if (photoError) {
-        console.log('Error saving photo record:', photoError);
-        throw photoError;
+      if (dbError) {
+        console.log('Error saving photo record:', dbError);
+        throw dbError;
       }
 
-      const newPhoto: Photo = {
-        id: photoData.id,
-        eventId: photoData.event_id,
-        uploadedBy: photoData.uploaded_by,
-        uploader: {
-          id: photoData.uploader.id,
-          email: photoData.uploader.email,
-          name: photoData.uploader.name,
-          avatar: photoData.uploader.avatar,
-          createdAt: new Date(photoData.uploader.created_at),
-        },
-        url: photoData.url,
-        thumbnail: photoData.thumbnail,
-        caption: photoData.caption,
-        uploadedAt: new Date(photoData.uploaded_at),
-      };
-
-      // Add to local state
-      setPhotos(prev => [newPhoto, ...prev]);
-
-      console.log('Photo uploaded successfully:', newPhoto.id);
-      return { success: true, photo: newPhoto };
+      console.log('Photo uploaded successfully:', photoData.id);
+      
+      // Reload photos to get the updated list
+      await loadPhotos();
+      
+      return photoData;
     } catch (error: any) {
-      console.log('Error in uploadPhoto:', error);
-      setError(error.message || 'Failed to upload photo');
-      return { success: false, error: error.message || 'Failed to upload photo' };
+      console.log('Error uploading photo:', error);
+      throw error;
     } finally {
-      setIsUploading(false);
+      setUploading(false);
     }
   };
 
-  const deletePhoto = async (photoId: string, userId: string, isOrganizer: boolean) => {
+  const deletePhoto = async (photoId: string, userId: string) => {
+    if (!isSupabaseConfigured) {
+      throw new Error('Supabase is not configured. Please set up your Supabase connection first.');
+    }
+
     try {
-      setIsLoading(true);
-      setError(null);
       console.log('Deleting photo:', photoId);
 
       // Get photo details first
-      const { data: photoData, error: getError } = await supabase
+      const { data: photo, error: fetchError } = await supabase
         .from('photos')
         .select('*')
         .eq('id', photoId)
         .single();
 
-      if (getError || !photoData) {
-        console.log('Photo not found:', getError);
-        throw new Error('Photo not found');
+      if (fetchError) {
+        console.log('Error fetching photo:', fetchError);
+        throw fetchError;
       }
 
-      // Check permissions (organizer or photo uploader can delete)
-      if (!isOrganizer && photoData.uploaded_by !== userId) {
-        throw new Error('You do not have permission to delete this photo');
-      }
+      // Extract filename from URL
+      const urlParts = photo.url.split('/');
+      const fileName = urlParts.slice(-3).join('/'); // Get the last 3 parts: eventId/userId/filename
 
       // Delete from storage
-      const filename = photoData.url.split('/').pop();
-      if (filename) {
-        const { error: storageError } = await supabase.storage
-          .from('event-photos')
-          .remove([`${eventId}/${filename}`]);
+      const { error: storageError } = await supabase.storage
+        .from('photos')
+        .remove([fileName]);
 
-        if (storageError) {
-          console.log('Error deleting from storage:', storageError);
-          // Continue with database deletion even if storage deletion fails
-        }
+      if (storageError) {
+        console.log('Error deleting from storage:', storageError);
+        // Continue with database deletion even if storage deletion fails
       }
 
       // Delete from database
-      const { error: deleteError } = await supabase
+      const { error: dbError } = await supabase
         .from('photos')
         .delete()
         .eq('id', photoId);
 
-      if (deleteError) {
-        console.log('Error deleting photo from database:', deleteError);
-        throw deleteError;
+      if (dbError) {
+        console.log('Error deleting photo record:', dbError);
+        throw dbError;
       }
 
-      // Remove from local state
-      setPhotos(prev => prev.filter(photo => photo.id !== photoId));
-
-      console.log('Photo deleted successfully:', photoId);
-      return { success: true };
+      console.log('Photo deleted successfully');
+      
+      // Reload photos to get the updated list
+      await loadPhotos();
     } catch (error: any) {
-      console.log('Error in deletePhoto:', error);
-      setError(error.message || 'Failed to delete photo');
-      return { success: false, error: error.message || 'Failed to delete photo' };
-    } finally {
-      setIsLoading(false);
+      console.log('Error deleting photo:', error);
+      throw error;
     }
   };
 
-  const pickImageFromGallery = async () => {
+  const pickImage = async () => {
     try {
+      // Request permission
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
         throw new Error('Permission to access media library is required');
       }
 
+      // Pick image
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -224,23 +195,25 @@ export const usePhotos = (eventId: string) => {
       });
 
       if (!result.canceled && result.assets[0]) {
-        return { success: true, uri: result.assets[0].uri };
+        return result.assets[0].uri;
       }
 
-      return { success: false, cancelled: true };
+      return null;
     } catch (error: any) {
-      console.log('Error picking image from gallery:', error);
-      return { success: false, error: error.message || 'Failed to pick image' };
+      console.log('Error picking image:', error);
+      throw error;
     }
   };
 
   const takePhoto = async () => {
     try {
+      // Request permission
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
         throw new Error('Permission to access camera is required');
       }
 
+      // Take photo
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
         aspect: [4, 3],
@@ -248,25 +221,25 @@ export const usePhotos = (eventId: string) => {
       });
 
       if (!result.canceled && result.assets[0]) {
-        return { success: true, uri: result.assets[0].uri };
+        return result.assets[0].uri;
       }
 
-      return { success: false, cancelled: true };
+      return null;
     } catch (error: any) {
       console.log('Error taking photo:', error);
-      return { success: false, error: error.message || 'Failed to take photo' };
+      throw error;
     }
   };
 
   return {
     photos,
-    isLoading,
-    isUploading,
+    loading,
+    uploading,
     error,
     loadPhotos,
     uploadPhoto,
     deletePhoto,
-    pickImageFromGallery,
+    pickImage,
     takePhoto,
   };
 };

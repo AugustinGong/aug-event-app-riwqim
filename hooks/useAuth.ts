@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { supabase } from '../config/supabase';
+import { supabase, isSupabaseConfigured } from '../config/supabase';
 import { User } from '../types';
 import { Session } from '@supabase/supabase-js';
 
@@ -10,10 +10,19 @@ export const useAuth = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
+    if (!isSupabaseConfigured) {
+      console.log('Supabase not configured, skipping auth initialization');
+      setIsLoading(false);
+      return;
+    }
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       console.log('Initial session:', session?.user?.id);
       handleAuthChange(session);
+    }).catch((error) => {
+      console.log('Error getting initial session:', error);
+      setIsLoading(false);
     });
 
     // Listen for auth changes
@@ -26,6 +35,11 @@ export const useAuth = () => {
   }, []);
 
   const handleAuthChange = async (session: Session | null) => {
+    if (!isSupabaseConfigured) {
+      setIsLoading(false);
+      return;
+    }
+
     if (session?.user) {
       try {
         // Get user profile from database
@@ -81,6 +95,10 @@ export const useAuth = () => {
   };
 
   const login = async (email: string, password: string) => {
+    if (!isSupabaseConfigured) {
+      return { success: false, error: 'Supabase is not configured. Please set up your Supabase connection first.' };
+    }
+
     try {
       setIsLoading(true);
       console.log('Attempting login for:', email);
@@ -116,6 +134,10 @@ export const useAuth = () => {
   };
 
   const register = async (email: string, password: string, name: string) => {
+    if (!isSupabaseConfigured) {
+      return { success: false, error: 'Supabase is not configured. Please set up your Supabase connection first.' };
+    }
+
     try {
       setIsLoading(true);
       console.log('Attempting registration for:', email);
@@ -165,6 +187,10 @@ export const useAuth = () => {
   };
 
   const logout = async () => {
+    if (!isSupabaseConfigured) {
+      return { success: true };
+    }
+
     try {
       console.log('Logging out user');
       const { error } = await supabase.auth.signOut();

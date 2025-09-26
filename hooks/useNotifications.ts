@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import * as Notifications from 'expo-notifications';
 import { supabase } from '../config/supabase';
 import { Notification as AppNotification } from '../types';
@@ -18,6 +18,9 @@ export const useNotifications = () => {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
+  
+  const notificationListener = useRef<Notifications.Subscription>();
+  const responseListener = useRef<Notifications.Subscription>();
 
   // Register for push notifications
   const registerForPushNotifications = useCallback(async () => {
@@ -61,20 +64,20 @@ export const useNotifications = () => {
     registerForPushNotifications();
 
     // Listen for notifications
-    const notificationListener = Notifications.addNotificationReceivedListener(notification => {
+    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
       console.log('Notification received:', notification);
     });
 
-    const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
       console.log('Notification response:', response);
     });
 
     return () => {
-      if (notificationListener) {
-        Notifications.removeNotificationSubscription(notificationListener);
+      if (notificationListener.current) {
+        notificationListener.current.remove();
       }
-      if (responseListener) {
-        Notifications.removeNotificationSubscription(responseListener);
+      if (responseListener.current) {
+        responseListener.current.remove();
       }
     };
   }, [registerForPushNotifications]);

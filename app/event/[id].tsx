@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -25,13 +25,7 @@ export default function EventDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('menu');
 
-  useEffect(() => {
-    if (id && user) {
-      loadEvent();
-    }
-  }, [id, user]);
-
-  const loadEvent = async () => {
+  const loadEvent = useCallback(async () => {
     if (!id) {
       router.back();
       return;
@@ -50,7 +44,13 @@ export default function EventDetailScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [id, getEventById, router]);
+
+  useEffect(() => {
+    if (id && user) {
+      loadEvent();
+    }
+  }, [id, user, loadEvent]);
 
   const handleToggleEventStatus = async () => {
     if (!event || !user) return;

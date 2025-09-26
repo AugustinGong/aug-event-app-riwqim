@@ -18,7 +18,7 @@ type TabType = 'menu' | 'notifications' | 'album' | 'access';
 
 export default function EventDetailScreen() {
   const { user, isAuthenticated, isLoading } = useAuth();
-  const { getEventById, updateEventStatus, markCourseServed, regenerateEventPassword, cancelEvent } = useEvents();
+  const { getEventById, updateEventStatus, markCourseServed, regenerateEventPassword, cancelEvent, deleteEvent } = useEvents();
   const { sendNotification } = useNotifications();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -125,6 +125,40 @@ export default function EventDetailScreen() {
             } catch (error: any) {
               console.log('Error cancelling event:', error);
               Alert.alert(i18n.t('common.error'), error.message || 'Failed to cancel event');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteEvent = async () => {
+    Alert.alert(
+      i18n.t('event.deleteEvent'),
+      i18n.t('event.confirmDeleteEvent'),
+      [
+        { text: i18n.t('common.cancel'), style: 'cancel' },
+        {
+          text: i18n.t('event.deleteEvent'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const result = await deleteEvent(event.id);
+              if (result.success) {
+                Alert.alert(
+                  i18n.t('common.success'),
+                  result.message,
+                  [
+                    {
+                      text: i18n.t('common.ok'),
+                      onPress: () => router.replace('/home'),
+                    },
+                  ]
+                );
+              }
+            } catch (error: any) {
+              console.log('Error deleting event:', error);
+              Alert.alert(i18n.t('common.error'), error.message || 'Failed to delete event');
             }
           },
         },
@@ -246,7 +280,7 @@ export default function EventDetailScreen() {
             {isCancelled && (
               <View style={[commonStyles.card, { backgroundColor: colors.errorLight, marginBottom: 20 }]}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Icon name="x-circle" size={20} color={colors.error} />
+                  <Icon name="close-circle" size={20} color={colors.error} />
                   <Text style={[commonStyles.text, { color: colors.error, marginLeft: 10, fontWeight: '600' }]}>
                     {i18n.t('event.eventCancelledStatus')}
                   </Text>
@@ -397,12 +431,22 @@ export default function EventDetailScreen() {
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      style={[buttonStyles.secondary, { borderColor: colors.error }]}
+                      style={[buttonStyles.secondary, { borderColor: colors.error, marginBottom: 10 }]}
                       onPress={handleCancelEvent}
                     >
-                      <Icon name="x-circle" size={16} color={colors.error} />
+                      <Icon name="close-circle" size={16} color={colors.error} />
                       <Text style={{ color: colors.error, marginLeft: 8, fontSize: 14 }}>
                         {i18n.t('event.cancelEvent')}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[buttonStyles.secondary, { borderColor: colors.error, backgroundColor: colors.errorLight }]}
+                      onPress={handleDeleteEvent}
+                    >
+                      <Icon name="trash-2" size={16} color={colors.error} />
+                      <Text style={{ color: colors.error, marginLeft: 8, fontSize: 14, fontWeight: '600' }}>
+                        {i18n.t('event.deleteEvent')}
                       </Text>
                     </TouchableOpacity>
                   </>

@@ -560,6 +560,59 @@ export const useEvents = () => {
     }
   };
 
+  const deleteEvent = async (eventId: string) => {
+    if (!isSupabaseConfigured) {
+      throw new Error('Supabase is not configured. Please set up your Supabase connection first.');
+    }
+
+    try {
+      console.log('Deleting event:', eventId);
+
+      // Get current user from auth
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Verify user is the organizer and get event title for confirmation
+      const { data: eventData, error: eventError } = await supabase
+        .from('events')
+        .select('organizer_id, title')
+        .eq('id', eventId)
+        .single();
+
+      if (eventError) {
+        console.log('Error fetching event:', eventError);
+        throw new Error('Event not found');
+      }
+
+      if (eventData.organizer_id !== user.id) {
+        throw new Error('Only the event organizer can delete the event');
+      }
+
+      // Delete the event (this will cascade delete all related records)
+      const { error: deleteError } = await supabase
+        .from('events')
+        .delete()
+        .eq('id', eventId);
+
+      if (deleteError) {
+        console.log('Error deleting event:', deleteError);
+        throw deleteError;
+      }
+
+      console.log('Event deleted successfully');
+      
+      // Reload events to get the updated list
+      await loadEvents();
+      
+      return { success: true, message: `Event "${eventData.title}" has been permanently deleted` };
+    } catch (error: any) {
+      console.log('Error deleting event:', error);
+      throw error;
+    }
+  };
+
   return {
     events,
     loading,
@@ -569,6 +622,7 @@ export const useEvents = () => {
     getEventById,
     updateEventStatus,
     cancelEvent,
+    deleteEvent,
     joinEvent,
     joinEventWithPassword,
     regenerateEventPassword,

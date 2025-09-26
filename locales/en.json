@@ -121,6 +121,8 @@
     "confirmCancelEvent": "Are you sure you want to cancel this event? This action cannot be undone.",
     "eventCancelled": "Event cancelled successfully",
     "eventCancelledStatus": "This event has been cancelled",
+    "deleteEvent": "Delete Event",
+    "confirmDeleteEvent": "Are you sure you want to permanently delete this event? This will remove all photos, menu items, and participant data. This action cannot be undone.",
     "courses": {
       "appetizer": "Appetizer",
       "first": "First Course",

@@ -121,6 +121,8 @@
     "confirmCancelEvent": "Sei sicuro di voler annullare questo evento? Questa azione non può essere annullata.",
     "eventCancelled": "Evento annullato con successo",
     "eventCancelledStatus": "Questo evento è stato annullato",
+    "deleteEvent": "Elimina Evento",
+    "confirmDeleteEvent": "Sei sicuro di voler eliminare definitivamente questo evento? Questo rimuoverà tutte le foto, elementi del menu e dati dei partecipanti. Questa azione non può essere annullata.",
     "courses": {
       "appetizer": "Antipasto",
       "first": "Primo Piatto",

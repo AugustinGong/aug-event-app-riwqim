@@ -53,12 +53,12 @@ export default function EventCard({ event, onPress, isOrganizer }: EventCardProp
 
   const getStatusIcon = (status: string) => {
     const iconMap: { [key: string]: string } = {
-      upcoming: 'clock',
+      upcoming: 'time',
       active: 'play-circle',
-      ended: 'check-circle',
-      cancelled: 'x-circle',
+      ended: 'checkmark-circle',
+      cancelled: 'close-circle',
     };
-    return iconMap[status] || 'clock';
+    return iconMap[status] || 'time';
   };
 
   const formatEventDate = (date: Date) => {
@@ -169,7 +169,7 @@ export default function EventCard({ event, onPress, isOrganizer }: EventCardProp
 
           {/* Participants Count */}
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Icon name="users" size={14} color={colors.textSecondary} />
+            <Icon name="people" size={14} color={colors.textSecondary} />
             <Text style={[commonStyles.textSecondary, { marginLeft: 6, fontSize: 12 }]}>
               {event.participants.length} participant{event.participants.length === 1 ? '' : 's'}
             </Text>
@@ -192,7 +192,7 @@ export default function EventCard({ event, onPress, isOrganizer }: EventCardProp
               flexDirection: 'row',
               alignItems: 'center'
             }}>
-              <Icon name="x-circle" size={14} color={colors.error} />
+              <Icon name="close-circle" size={14} color={colors.error} />
               <Text style={[commonStyles.textSecondary, { marginLeft: 6, fontSize: 11, color: colors.error }]}>
                 {i18n.t('event.eventCancelledStatus')}
               </Text>

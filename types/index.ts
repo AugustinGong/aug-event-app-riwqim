@@ -21,7 +21,7 @@ export interface Event {
   accessPassword?: string;
   eventType: EventType;
   isLive: boolean;
-  status?: 'upcoming' | 'active' | 'ended';
+  status?: 'upcoming' | 'active' | 'ended' | 'cancelled';
   createdAt: Date;
   expiresAt?: Date;
 }

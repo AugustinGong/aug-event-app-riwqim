@@ -17,7 +17,7 @@ export default function HomeScreen() {
   const [forceUpdate, setForceUpdate] = useState(0);
   const { user, isAuthenticated, isLoading, signOut } = useAuth();
   const router = useRouter();
-  const { events, loading, loadEvents } = useEvents();
+  const { events, loading, loadEvents, deleteEvent } = useEvents();
 
   // Add language change listener for automatic UI updates
   useEffect(() => {
@@ -85,6 +85,21 @@ export default function HomeScreen() {
         },
       ]
     );
+  };
+
+  const handleDeleteEvent = async (eventId: string) => {
+    try {
+      const result = await deleteEvent(eventId);
+      if (result.success) {
+        Alert.alert(
+          i18n.t('common.success'),
+          result.message
+        );
+      }
+    } catch (error: any) {
+      console.log('Error deleting event:', error);
+      Alert.alert(i18n.t('common.error'), error.message || 'Failed to delete event');
+    }
   };
 
   // Filter events by status
@@ -195,6 +210,7 @@ export default function HomeScreen() {
                     event={event}
                     onPress={() => router.push(`/event/${event.id}`)}
                     isOrganizer={event.organizerId === user?.id}
+                    onDelete={event.organizerId === user?.id ? handleDeleteEvent : undefined}
                   />
                 ))}
               </View>
@@ -212,6 +228,7 @@ export default function HomeScreen() {
                     event={event}
                     onPress={() => router.push(`/event/${event.id}`)}
                     isOrganizer={event.organizerId === user?.id}
+                    onDelete={event.organizerId === user?.id ? handleDeleteEvent : undefined}
                   />
                 ))}
               </View>
@@ -229,6 +246,7 @@ export default function HomeScreen() {
                     event={event}
                     onPress={() => router.push(`/event/${event.id}`)}
                     isOrganizer={true}
+                    onDelete={handleDeleteEvent}
                   />
                 ))}
               </View>
@@ -246,6 +264,7 @@ export default function HomeScreen() {
                     event={event}
                     onPress={() => router.push(`/event/${event.id}`)}
                     isOrganizer={false}
+                    onDelete={undefined}
                   />
                 ))}
               </View>
@@ -263,6 +282,7 @@ export default function HomeScreen() {
                     event={event}
                     onPress={() => router.push(`/event/${event.id}`)}
                     isOrganizer={event.organizerId === user?.id}
+                    onDelete={event.organizerId === user?.id ? handleDeleteEvent : undefined}
                   />
                 ))}
               </View>
@@ -280,6 +300,7 @@ export default function HomeScreen() {
                     event={event}
                     onPress={() => router.push(`/event/${event.id}`)}
                     isOrganizer={event.organizerId === user?.id}
+                    onDelete={event.organizerId === user?.id ? handleDeleteEvent : undefined}
                   />
                 ))}
               </View>

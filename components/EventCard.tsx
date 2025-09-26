@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, Alert } from 'react-native';
 import { commonStyles, colors } from '../styles/commonStyles';
 import Icon from './Icon';
 import { Event } from '../types';
@@ -10,9 +10,10 @@ interface EventCardProps {
   event: Event;
   onPress: () => void;
   isOrganizer: boolean;
+  onDelete?: (eventId: string) => void;
 }
 
-export default function EventCard({ event, onPress, isOrganizer }: EventCardProps) {
+export default function EventCard({ event, onPress, isOrganizer, onDelete }: EventCardProps) {
   const getEventTypeIcon = (eventType: string) => {
     const iconMap: { [key: string]: string } = {
       wedding: 'heart',
@@ -78,6 +79,27 @@ export default function EventCard({ event, onPress, isOrganizer }: EventCardProp
     } else {
       return eventDate.toLocaleDateString();
     }
+  };
+
+  const handleDeletePress = (e: any) => {
+    e.stopPropagation(); // Prevent triggering the card's onPress
+    
+    Alert.alert(
+      i18n.t('event.deleteEvent'),
+      i18n.t('event.confirmDeleteEvent'),
+      [
+        { text: i18n.t('common.cancel'), style: 'cancel' },
+        {
+          text: i18n.t('event.deleteEvent'),
+          style: 'destructive',
+          onPress: () => {
+            if (onDelete) {
+              onDelete(event.id);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const isCancelled = event.status === 'cancelled';
@@ -200,8 +222,27 @@ export default function EventCard({ event, onPress, isOrganizer }: EventCardProp
           )}
         </View>
 
-        {/* Arrow Icon */}
-        <Icon name="chevron-right" size={20} color={colors.textSecondary} />
+        {/* Action Buttons */}
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {/* Delete Button - Only visible to organizers */}
+          {isOrganizer && onDelete && (
+            <TouchableOpacity
+              style={{
+                padding: 8,
+                marginRight: 8,
+                borderRadius: 8,
+                backgroundColor: colors.errorLight,
+              }}
+              onPress={handleDeletePress}
+              activeOpacity={0.7}
+            >
+              <Icon name="trash-2" size={16} color={colors.error} />
+            </TouchableOpacity>
+          )}
+
+          {/* Arrow Icon */}
+          <Icon name="chevron-right" size={20} color={colors.textSecondary} />
+        </View>
       </View>
     </TouchableOpacity>
   );

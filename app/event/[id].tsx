@@ -439,16 +439,6 @@ export default function EventDetailScreen() {
                         {i18n.t('event.cancelEvent')}
                       </Text>
                     </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[buttonStyles.secondary, { borderColor: colors.error, backgroundColor: colors.errorLight }]}
-                      onPress={handleDeleteEvent}
-                    >
-                      <Icon name="trash-2" size={16} color={colors.error} />
-                      <Text style={{ color: colors.error, marginLeft: 8, fontSize: 14, fontWeight: '600' }}>
-                        {i18n.t('event.deleteEvent')}
-                      </Text>
-                    </TouchableOpacity>
                   </>
                 )}
               </View>
@@ -467,10 +457,24 @@ export default function EventDetailScreen() {
         <TouchableOpacity onPress={() => router.back()}>
           <Icon name="arrow-left" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[commonStyles.title, { color: colors.primary }]} numberOfLines={1}>
+        <Text style={[commonStyles.title, { color: colors.primary, flex: 1, textAlign: 'center' }]} numberOfLines={1}>
           {event.title}
         </Text>
-        <View style={{ width: 24 }} />
+        {/* Delete Button in Header - Only visible to organizers */}
+        {isOrganizer ? (
+          <TouchableOpacity
+            onPress={handleDeleteEvent}
+            style={{
+              padding: 8,
+              borderRadius: 8,
+              backgroundColor: colors.errorLight,
+            }}
+          >
+            <Icon name="trash-2" size={20} color={colors.error} />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 24 }} />
+        )}
       </View>
 
       {/* Event Header */}

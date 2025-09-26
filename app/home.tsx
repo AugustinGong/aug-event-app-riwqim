@@ -1,40 +1,35 @@
 
-import { useRouter } from 'expo-router';
-import { useEvents } from '../hooks/useEvents';
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../hooks/useAuth';
-import Icon from '../components/Icon';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { commonStyles, colors, buttonStyles } from '../styles/commonStyles';
-import EventCard from '../components/EventCard';
-import LanguageSelector from '../components/LanguageSelector';
-import i18n from '../config/i18n';
-import { View, Text, TouchableOpacity, ScrollView, RefreshControl, Alert } from 'react-native';
 import { Redirect } from 'expo-router';
+import { commonStyles, colors, buttonStyles } from '../styles/commonStyles';
+import { useAuth } from '../hooks/useAuth';
+import LanguageSelector from '../components/LanguageSelector';
+import { useRouter } from 'expo-router';
+import i18n from '../config/i18n';
+import React, { useState, useEffect } from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useEvents } from '../hooks/useEvents';
+import { View, Text, TouchableOpacity, ScrollView, RefreshControl, Alert, Image } from 'react-native';
+import Icon from '../components/Icon';
+import EventCard from '../components/EventCard';
 
 export default function HomeScreen() {
-  const { user, logout, isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading, logout } = useAuth();
   const { events, loading, loadEvents } = useEvents();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(false);
-
-  useEffect(() => {
-    // Show welcome message for new sessions
-    if (user) {
-      const timer = setTimeout(() => {
-        setShowWelcome(true);
-        setTimeout(() => setShowWelcome(false), 3000);
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [user]);
 
   // Redirect to login if not authenticated
   if (!isLoading && !isAuthenticated) {
     console.log('User not authenticated, redirecting to login');
     return <Redirect href="/" />;
   }
+
+  useEffect(() => {
+    if (user) {
+      console.log('User authenticated, loading events for:', user.email);
+      loadEvents();
+    }
+  }, [user, loadEvents]);
 
   // Show loading if still checking authentication
   if (isLoading) {
@@ -55,24 +50,24 @@ export default function HomeScreen() {
 
   const handleLogout = async () => {
     Alert.alert(
-      i18n.t('auth.logout'),
-      i18n.t('auth.logoutConfirmation'),
+      i18n.t('auth.signOut'),
+      'Are you sure you want to sign out?',
       [
+        { text: i18n.t('common.cancel'), style: 'cancel' },
         {
-          text: i18n.t('common.cancel'),
-          style: 'cancel',
-        },
-        {
-          text: i18n.t('auth.logout'),
+          text: i18n.t('auth.signOut'),
           style: 'destructive',
           onPress: async () => {
-            console.log('User confirmed logout');
-            const result = await logout();
-            if (result.success) {
-              console.log('Logout successful, redirecting to login');
-              // The navigation will be handled automatically by the auth state change in _layout.tsx
-            } else {
-              Alert.alert(i18n.t('common.error'), result.error || 'Logout failed');
+            try {
+              const result = await logout();
+              if (result.success) {
+                router.replace('/');
+              } else {
+                Alert.alert(i18n.t('common.error'), result.error || 'Failed to sign out');
+              }
+            } catch (error: any) {
+              console.log('Error signing out:', error);
+              Alert.alert(i18n.t('common.error'), error.message || 'Failed to sign out');
             }
           },
         },
@@ -81,61 +76,69 @@ export default function HomeScreen() {
   };
 
   const myEvents = events.filter(event => event.organizerId === user?.id);
-  const joinedEvents = events.filter(event => event.organizerId !== user?.id);
+  const joinedEvents = events.filter(event => 
+    event.organizerId !== user?.id && 
+    event.participants?.some(p => p === user?.id)
+  );
 
   return (
     <SafeAreaView style={[commonStyles.container, { backgroundColor: colors.background }]}>
-      {/* Welcome Message */}
-      {showWelcome && user && (
-        <View style={{
-          position: 'absolute',
-          top: 100,
-          left: 20,
-          right: 20,
-          backgroundColor: colors.primary,
-          padding: 16,
-          borderRadius: 12,
-          zIndex: 1000,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.25,
-          shadowRadius: 4,
-          elevation: 5,
-        }}>
-          <Text style={{
-            color: 'white',
-            fontSize: 18,
-            fontWeight: '600',
-            textAlign: 'center',
-          }}>
-            Welcome, {user.name}! 🎉
-          </Text>
-          <Text style={{
-            color: 'white',
-            fontSize: 14,
-            textAlign: 'center',
-            marginTop: 4,
-            opacity: 0.9,
-          }}>
-            Ready to create amazing events?
-          </Text>
-        </View>
-      )}
-
+      {/* Header */}
       <View style={[commonStyles.header, { paddingHorizontal: 20 }]}>
-        <View>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Image 
+            source={require('../assets/images/39080b9e-5985-4ab4-8518-0188f6dbb943.png')}
+            style={{ width: 32, height: 32, marginRight: 12 }}
+          />
           <Text style={[commonStyles.title, { color: colors.primary }]}>
-            {i18n.t('home.title')}
-          </Text>
-          <Text style={commonStyles.subtitle}>
-            {user ? `Hello, ${user.name}` : i18n.t('home.subtitle')}
+            AUG-Event
           </Text>
         </View>
-        <TouchableOpacity onPress={handleLogout}>
-          <Icon name="log-out" size={24} color={colors.text} />
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <LanguageSelector />
+          <TouchableOpacity 
+            style={{ marginLeft: 15 }}
+            onPress={handleLogout}
+          >
+            <Icon name="log-out" size={24} color={colors.text} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Welcome Section */}
+      <View style={[commonStyles.card, { margin: 20, marginBottom: 10 }]}>
+        <Text style={[commonStyles.title, { marginBottom: 5 }]}>
+          Welcome back, {user?.name}!
+        </Text>
+        <Text style={[commonStyles.textSecondary]}>
+          Manage your events and join new ones
+        </Text>
+      </View>
+
+      {/* Action Buttons */}
+      <View style={{ flexDirection: 'row', paddingHorizontal: 20, marginBottom: 20, gap: 10 }}>
+        <TouchableOpacity
+          style={[buttonStyles.primary, { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]}
+          onPress={() => router.push('/create-event')}
+        >
+          <Icon name="add" size={20} color="white" />
+          <Text style={{ color: 'white', marginLeft: 8, fontSize: 16, fontWeight: '600' }}>
+            {i18n.t('home.createEvent')}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[buttonStyles.secondary, { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]}
+          onPress={() => router.push('/scan-qr')}
+        >
+          <Icon name="people" size={20} color={colors.primary} />
+          <Text style={{ color: colors.primary, marginLeft: 8, fontSize: 16, fontWeight: '600' }}>
+            {i18n.t('home.joinEvent')}
+          </Text>
         </TouchableOpacity>
       </View>
 
+      {/* Events List */}
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100 }}
@@ -143,75 +146,59 @@ export default function HomeScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
       >
-        <View style={{ flexDirection: 'row', marginBottom: 20 }}>
-          <TouchableOpacity
-            style={[buttonStyles.primary, { flex: 1, marginRight: 10 }]}
-            onPress={() => router.push('/create-event')}
-          >
-            <Icon name="plus" size={20} color="white" />
-            <Text style={{ color: 'white', fontSize: 16, fontWeight: '600', marginLeft: 8 }}>
-              {i18n.t('home.createEvent')}
+        {loading && events.length === 0 ? (
+          <View style={[commonStyles.centerContent, { marginTop: 50 }]}>
+            <Text style={[commonStyles.textSecondary]}>
+              {i18n.t('common.loading')}
             </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[buttonStyles.secondary, { flex: 1, marginLeft: 10 }]}
-            onPress={() => router.push('/scan-qr')}
-          >
-            <Icon name="qr-code" size={20} color={colors.primary} />
-            <Text style={{ color: colors.primary, fontSize: 16, fontWeight: '600', marginLeft: 8 }}>
-              {i18n.t('home.joinEvent')}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {myEvents.length > 0 && (
-          <View style={{ marginBottom: 30 }}>
-            <Text style={[commonStyles.sectionTitle, { marginBottom: 15 }]}>
-              {i18n.t('home.myEvents')}
-            </Text>
-            {myEvents.map((event) => (
-              <EventCard
-                key={event.id}
-                event={event}
-                onPress={() => router.push(`/event/${event.id}`)}
-                isOrganizer={true}
-              />
-            ))}
           </View>
-        )}
-
-        {joinedEvents.length > 0 && (
-          <View style={{ marginBottom: 30 }}>
-            <Text style={[commonStyles.sectionTitle, { marginBottom: 15 }]}>
-              {i18n.t('home.joinedEvents')}
-            </Text>
-            {joinedEvents.map((event) => (
-              <EventCard
-                key={event.id}
-                event={event}
-                onPress={() => router.push(`/event/${event.id}`)}
-                isOrganizer={false}
-              />
-            ))}
-          </View>
-        )}
-
-        {events.length === 0 && !loading && (
+        ) : events.length === 0 ? (
           <View style={[commonStyles.centerContent, { marginTop: 50 }]}>
             <Icon name="calendar" size={64} color={colors.textSecondary} />
             <Text style={[commonStyles.title, { marginTop: 20, textAlign: 'center' }]}>
               {i18n.t('home.noEvents')}
             </Text>
-            <Text style={[commonStyles.textSecondary, { textAlign: 'center', marginTop: 8 }]}>
+            <Text style={[commonStyles.textSecondary, { textAlign: 'center', marginTop: 10 }]}>
               {i18n.t('home.noEventsDescription')}
             </Text>
           </View>
-        )}
+        ) : (
+          <>
+            {/* My Events */}
+            {myEvents.length > 0 && (
+              <>
+                <Text style={[commonStyles.sectionTitle, { marginBottom: 15, marginTop: 10 }]}>
+                  {i18n.t('home.myEvents')} ({myEvents.length})
+                </Text>
+                {myEvents.map((event) => (
+                  <EventCard
+                    key={event.id}
+                    event={event}
+                    isOrganizer={true}
+                    onPress={() => router.push(`/event/${event.id}`)}
+                  />
+                ))}
+              </>
+            )}
 
-        <View style={{ marginTop: 30 }}>
-          <LanguageSelector />
-        </View>
+            {/* Joined Events */}
+            {joinedEvents.length > 0 && (
+              <>
+                <Text style={[commonStyles.sectionTitle, { marginBottom: 15, marginTop: myEvents.length > 0 ? 30 : 10 }]}>
+                  {i18n.t('home.joinedEvents')} ({joinedEvents.length})
+                </Text>
+                {joinedEvents.map((event) => (
+                  <EventCard
+                    key={event.id}
+                    event={event}
+                    isOrganizer={false}
+                    onPress={() => router.push(`/event/${event.id}`)}
+                  />
+                ))}
+              </>
+            )}
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

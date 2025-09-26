@@ -213,6 +213,9 @@ export const useAuth = () => {
     }
   };
 
+  // Alias for backward compatibility
+  const signOut = logout;
+
   return {
     user,
     isLoading,
@@ -220,5 +223,6 @@ export const useAuth = () => {
     login,
     register,
     logout,
+    signOut, // Keep both for compatibility
   };
 };

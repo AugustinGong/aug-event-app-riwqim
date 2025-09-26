@@ -27,9 +27,11 @@ interface PhotoGalleryProps {
 }
 
 export default function PhotoGallery({ eventId, user, isOrganizer, canUpload }: PhotoGalleryProps) {
-  const { photos, loading, loadPhotos, uploadPhoto, deletePhoto } = usePhotos();
+  const { photos, loading, loadPhotos, uploadPhoto, downloadPhoto, deletePhoto } = usePhotos();
   const [refreshing, setRefreshing] = useState(false);
   const [showUploadSheet, setShowUploadSheet] = useState(false);
+  const [showPhotoSheet, setShowPhotoSheet] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
   const [uploading, setUploading] = useState(false);
 
   const screenWidth = Dimensions.get('window').width;
@@ -45,56 +47,118 @@ export default function PhotoGallery({ eventId, user, isOrganizer, canUpload }: 
     setRefreshing(false);
   };
 
+  const requestPermissions = async () => {
+    // Request camera permissions
+    const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
+    if (cameraPermission.status !== 'granted') {
+      Alert.alert(
+        i18n.t('common.error'),
+        'Camera permission is required to take photos.',
+        [{ text: i18n.t('common.ok') }]
+      );
+      return false;
+    }
+
+    // Request media library permissions
+    const mediaPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (mediaPermission.status !== 'granted') {
+      Alert.alert(
+        i18n.t('common.error'),
+        'Media library permission is required to select photos.',
+        [{ text: i18n.t('common.ok') }]
+      );
+      return false;
+    }
+
+    return true;
+  };
+
   const handlePickImage = async () => {
     setShowUploadSheet(false);
     
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-      allowsMultipleSelection: false,
-    });
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) return;
+    
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        allowsMultipleSelection: false,
+      });
 
-    if (!result.canceled && result.assets[0]) {
-      setUploading(true);
-      try {
-        await uploadPhoto(eventId, result.assets[0].uri, user);
-        Alert.alert(i18n.t('common.success'), i18n.t('event.photoUploadedSuccess'));
-      } catch (error: any) {
-        console.log('Error uploading photo:', error);
-        Alert.alert(i18n.t('common.error'), error.message || i18n.t('errors.unknownError'));
-      } finally {
-        setUploading(false);
+      if (!result.canceled && result.assets[0]) {
+        setUploading(true);
+        try {
+          await uploadPhoto(eventId, result.assets[0].uri, user);
+          Alert.alert(i18n.t('common.success'), i18n.t('event.photoUploadedSuccess'));
+        } catch (error: any) {
+          console.log('Error uploading photo:', error);
+          Alert.alert(i18n.t('common.error'), error.message || i18n.t('errors.unknownError'));
+        } finally {
+          setUploading(false);
+        }
       }
+    } catch (error: any) {
+      console.log('Error picking image:', error);
+      Alert.alert(i18n.t('common.error'), 'Failed to select image from library');
+      setUploading(false);
     }
   };
 
   const handleTakePhoto = async () => {
     setShowUploadSheet(false);
     
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-    });
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) return;
+    
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      });
 
-    if (!result.canceled && result.assets[0]) {
-      setUploading(true);
-      try {
-        await uploadPhoto(eventId, result.assets[0].uri, user);
-        Alert.alert(i18n.t('common.success'), i18n.t('event.photoUploadedSuccess'));
-      } catch (error: any) {
-        console.log('Error uploading photo:', error);
-        Alert.alert(i18n.t('common.error'), error.message || i18n.t('errors.unknownError'));
-      } finally {
-        setUploading(false);
+      if (!result.canceled && result.assets[0]) {
+        setUploading(true);
+        try {
+          await uploadPhoto(eventId, result.assets[0].uri, user);
+          Alert.alert(i18n.t('common.success'), i18n.t('event.photoUploadedSuccess'));
+        } catch (error: any) {
+          console.log('Error uploading photo:', error);
+          Alert.alert(i18n.t('common.error'), error.message || i18n.t('errors.unknownError'));
+        } finally {
+          setUploading(false);
+        }
       }
+    } catch (error: any) {
+      console.log('Error taking photo:', error);
+      Alert.alert(i18n.t('common.error'), 'Failed to take photo');
+      setUploading(false);
+    }
+  };
+
+  const handlePhotoPress = (photo: any) => {
+    setSelectedPhoto(photo);
+    setShowPhotoSheet(true);
+  };
+
+  const handleDownloadPhoto = async () => {
+    if (!selectedPhoto) return;
+    
+    setShowPhotoSheet(false);
+    try {
+      await downloadPhoto(selectedPhoto);
+    } catch (error: any) {
+      console.log('Error downloading photo:', error);
+      Alert.alert(i18n.t('common.error'), error.message || 'Failed to download photo');
     }
   };
 
   const handleDeletePhoto = (photoId: string) => {
+    setShowPhotoSheet(false);
     Alert.alert(
       i18n.t('event.deletePhoto'),
       i18n.t('event.confirmDeletePhoto'),
@@ -175,11 +239,18 @@ export default function PhotoGallery({ eventId, user, isOrganizer, canUpload }: 
             <Text style={[commonStyles.title, { marginTop: 20, textAlign: 'center' }]}>
               {i18n.t('event.noPhotos')}
             </Text>
+            <Text style={[commonStyles.textSecondary, { textAlign: 'center', marginTop: 10 }]}>
+              {canUpload ? 'Tap the upload button to add the first photo!' : 'No photos have been uploaded yet.'}
+            </Text>
           </View>
         ) : (
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
             {photos.map((photo) => (
-              <View key={photo.id} style={{ marginBottom: 20 }}>
+              <TouchableOpacity 
+                key={photo.id} 
+                style={{ marginBottom: 20 }}
+                onPress={() => handlePhotoPress(photo)}
+              >
                 <Image
                   source={{ uri: photo.url }}
                   style={{
@@ -205,28 +276,19 @@ export default function PhotoGallery({ eventId, user, isOrganizer, canUpload }: 
                     paddingHorizontal: 8,
                     paddingVertical: 4,
                     borderRadius: 8,
-                  }}>
-                    {photo.uploadedBy?.name || 'Unknown'}
+                    flex: 1,
+                    marginRight: 8,
+                  }} numberOfLines={1}>
+                    {photo.uploader?.name || 'Unknown'}
                   </Text>
-                  {(isOrganizer || photo.uploadedBy?.id === user.id) && (
-                    <TouchableOpacity
-                      style={{
-                        backgroundColor: 'rgba(255,0,0,0.8)',
-                        padding: 6,
-                        borderRadius: 6,
-                      }}
-                      onPress={() => handleDeletePhoto(photo.id)}
-                    >
-                      <Icon name="trash-2" size={14} color="white" />
-                    </TouchableOpacity>
-                  )}
                 </View>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         )}
       </ScrollView>
 
+      {/* Upload Options Bottom Sheet */}
       <SimpleBottomSheet
         isVisible={showUploadSheet}
         onClose={() => setShowUploadSheet(false)}
@@ -255,6 +317,40 @@ export default function PhotoGallery({ eventId, user, isOrganizer, canUpload }: 
               {i18n.t('event.chooseFromLibrary')}
             </Text>
           </TouchableOpacity>
+        </View>
+      </SimpleBottomSheet>
+
+      {/* Photo Actions Bottom Sheet */}
+      <SimpleBottomSheet
+        isVisible={showPhotoSheet}
+        onClose={() => setShowPhotoSheet(false)}
+      >
+        <View style={{ padding: 20 }}>
+          <Text style={[commonStyles.title, { marginBottom: 20, textAlign: 'center' }]}>
+            {i18n.t('event.photoOptions')}
+          </Text>
+          
+          <TouchableOpacity
+            style={[commonStyles.card, { flexDirection: 'row', alignItems: 'center', marginBottom: 15 }]}
+            onPress={handleDownloadPhoto}
+          >
+            <Icon name="download" size={24} color={colors.primary} />
+            <Text style={[commonStyles.text, { marginLeft: 15 }]}>
+              {i18n.t('event.downloadPhoto')}
+            </Text>
+          </TouchableOpacity>
+          
+          {(isOrganizer || selectedPhoto?.uploadedBy === user.id) && (
+            <TouchableOpacity
+              style={[commonStyles.card, { flexDirection: 'row', alignItems: 'center' }]}
+              onPress={() => handleDeletePhoto(selectedPhoto?.id)}
+            >
+              <Icon name="trash-2" size={24} color={colors.error} />
+              <Text style={[commonStyles.text, { marginLeft: 15, color: colors.error }]}>
+                {i18n.t('event.deletePhoto')}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </SimpleBottomSheet>
     </View>

@@ -5,7 +5,7 @@ import i18n from '../config/i18n';
 import React, { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, KeyboardAvoidingView, Platform, Keyboard, TouchableWithoutFeedback } from 'react-native';
-import { MenuCourse } from '../types';
+import { MenuCourse, EventType, EventTypeOption } from '../types';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from '../components/Icon';
 import { commonStyles, colors, buttonStyles } from '../styles/commonStyles';
@@ -22,6 +22,7 @@ export default function CreateEventScreen() {
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
   const [date, setDate] = useState(new Date());
+  const [eventType, setEventType] = useState<EventType>('celebration');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [courses, setCourses] = useState<MenuCourse[]>([]);
   const [loading, setLoading] = useState(false);
@@ -42,6 +43,17 @@ export default function CreateEventScreen() {
       </SafeAreaView>
     );
   }
+
+  const eventTypeOptions: EventTypeOption[] = [
+    { type: 'wedding', name: i18n.t('eventTypes.wedding'), icon: 'heart', color: '#FF69B4' },
+    { type: 'birthday', name: i18n.t('eventTypes.birthday'), icon: 'gift', color: '#FFD700' },
+    { type: 'celebration', name: i18n.t('eventTypes.celebration'), icon: 'star', color: '#8B5CF6' },
+    { type: 'anniversary', name: i18n.t('eventTypes.anniversary'), icon: 'calendar', color: '#FF6B6B' },
+    { type: 'graduation', name: i18n.t('eventTypes.graduation'), icon: 'award', color: '#4ECDC4' },
+    { type: 'corporate', name: i18n.t('eventTypes.corporate'), icon: 'briefcase', color: '#45B7D1' },
+    { type: 'party', name: i18n.t('eventTypes.party'), icon: 'music', color: '#96CEB4' },
+    { type: 'other', name: i18n.t('eventTypes.other'), icon: 'more-horizontal', color: '#95A5A6' },
+  ];
 
   const courseTypes = [
     { type: 'appetizer' as const, name: i18n.t('event.courses.appetizer'), icon: 'utensils' },
@@ -105,6 +117,7 @@ export default function CreateEventScreen() {
         title: title.trim(),
         description: description.trim(),
         location: location.trim(),
+        eventType,
         date,
         menuCount: courses.length,
       });
@@ -113,6 +126,7 @@ export default function CreateEventScreen() {
         title: title.trim(),
         description: description.trim(),
         location: location.trim(),
+        eventType,
         date,
         menu: courses,
       });
@@ -122,7 +136,7 @@ export default function CreateEventScreen() {
       if (result.success && result.event) {
         Alert.alert(
           i18n.t('common.success'),
-          'Event created successfully!',
+          `Event created successfully! Access password: ${result.event.access_password}`,
           [
             {
               text: i18n.t('common.ok'),
@@ -168,18 +182,6 @@ export default function CreateEventScreen() {
             contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100 }}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Debug info */}
-            <View style={[commonStyles.card, { marginBottom: 20, backgroundColor: colors.cardBackground }]}>
-              <Text style={[commonStyles.textSecondary, { fontSize: 12 }]}>
-                Debug: User ID: {user?.id || 'Not found'}
-              </Text>
-              <Text style={[commonStyles.textSecondary, { fontSize: 12 }]}>
-                Email: {user?.email || 'Not found'}
-              </Text>
-              <Text style={[commonStyles.textSecondary, { fontSize: 12 }]}>
-                Authenticated: {isAuthenticated ? 'Yes' : 'No'}
-              </Text>
-            </View>
             <View style={[commonStyles.card, { marginBottom: 20 }]}>
               <Text style={[commonStyles.sectionTitle, { marginBottom: 20 }]}>
                 {i18n.t('createEvent.eventDetails')}
@@ -208,6 +210,50 @@ export default function CreateEventScreen() {
                   placeholder={i18n.t('createEvent.descriptionPlaceholder')}
                   multiline
                 />
+              </View>
+
+              <View style={{ marginBottom: 20 }}>
+                <Text style={[commonStyles.label, { marginBottom: 8 }]}>
+                  {i18n.t('createEvent.eventType')}
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
+                  <View style={{ flexDirection: 'row', paddingRight: 20 }}>
+                    {eventTypeOptions.map((option) => (
+                      <TouchableOpacity
+                        key={option.type}
+                        style={[
+                          {
+                            marginRight: 12,
+                            paddingHorizontal: 16,
+                            paddingVertical: 12,
+                            borderRadius: 20,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            borderWidth: 2,
+                          },
+                          eventType === option.type
+                            ? { backgroundColor: option.color + '20', borderColor: option.color }
+                            : { backgroundColor: colors.cardBackground, borderColor: colors.border }
+                        ]}
+                        onPress={() => setEventType(option.type)}
+                      >
+                        <Icon 
+                          name={option.icon} 
+                          size={16} 
+                          color={eventType === option.type ? option.color : colors.textSecondary} 
+                        />
+                        <Text style={[
+                          { marginLeft: 8, fontSize: 14, fontWeight: '500' },
+                          eventType === option.type 
+                            ? { color: option.color }
+                            : { color: colors.textSecondary }
+                        ]}>
+                          {option.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </ScrollView>
               </View>
 
               <View style={{ marginBottom: 20 }}>

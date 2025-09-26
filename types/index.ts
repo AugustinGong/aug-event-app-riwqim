@@ -19,11 +19,22 @@ export interface Event {
   participants: string[];
   qrCode: string;
   accessPassword?: string;
+  eventType: EventType;
   isLive: boolean;
   status?: 'upcoming' | 'active' | 'ended';
   createdAt: Date;
   expiresAt?: Date;
 }
+
+export type EventType = 
+  | 'wedding'
+  | 'birthday'
+  | 'celebration'
+  | 'anniversary'
+  | 'graduation'
+  | 'corporate'
+  | 'party'
+  | 'other';
 
 export interface MenuCourse {
   id: string;
@@ -37,7 +48,7 @@ export interface Photo {
   id: string;
   eventId: string;
   uploadedBy: string;
-  uploader: User;
+  uploader?: User;
   url: string;
   thumbnail?: string;
   caption?: string;
@@ -61,4 +72,11 @@ export interface EventParticipant {
   user: User;
   role: UserRole;
   joinedAt: Date;
+}
+
+export interface EventTypeOption {
+  type: EventType;
+  name: string;
+  icon: string;
+  color: string;
 }

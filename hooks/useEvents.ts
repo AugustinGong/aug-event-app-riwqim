@@ -1,5 +1,5 @@
 
-import { Event, MenuCourse, User } from '../types';
+import { Event, MenuCourse, User, EventType } from '../types';
 import { useState, useEffect, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../config/supabase';
 import { generateSecurePassword } from '../utils/errorLogger';
@@ -53,6 +53,7 @@ export const useEvents = () => {
         status: event.status || 'upcoming',
         qrCode: event.qr_code,
         accessPassword: event.access_password,
+        eventType: event.event_type || 'celebration',
         isLive: event.is_live || false,
         menu: (event.menu_courses || []).map((course: any) => ({
           id: course.id,
@@ -84,6 +85,7 @@ export const useEvents = () => {
     description: string;
     date: Date;
     location: string;
+    eventType: EventType;
     menu: MenuCourse[];
   }) => {
     if (!isSupabaseConfigured) {
@@ -102,8 +104,8 @@ export const useEvents = () => {
 
       console.log('Authenticated user:', user.id);
 
-      // Generate unique password for event access
-      const accessPassword = await generateSecurePassword(8);
+      // Generate unique password for event access (minimum 4 characters)
+      const accessPassword = await generateSecurePassword(6);
       console.log('Generated access password:', accessPassword);
 
       // Generate QR code data with event ID and password
@@ -117,6 +119,7 @@ export const useEvents = () => {
           description: eventData.description,
           date: eventData.date.toISOString(),
           location: eventData.location,
+          event_type: eventData.eventType,
           organizer_id: user.id,
           qr_code: qrCodeData,
           access_password: accessPassword,
@@ -208,6 +211,7 @@ export const useEvents = () => {
         status: data.status || 'upcoming',
         qrCode: data.qr_code,
         accessPassword: data.access_password,
+        eventType: data.event_type || 'celebration',
         isLive: data.is_live || false,
         menu: (data.menu_courses || []).map((course: any) => ({
           id: course.id,
@@ -454,8 +458,8 @@ export const useEvents = () => {
         throw new Error('Only the event organizer can regenerate the password');
       }
 
-      // Generate new password
-      const newPassword = await generateSecurePassword(8);
+      // Generate new password (minimum 4 characters)
+      const newPassword = await generateSecurePassword(6);
       console.log('Generated new password:', newPassword);
 
       // Extract the timestamp from the existing QR code

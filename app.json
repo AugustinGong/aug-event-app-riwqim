@@ -5,10 +5,10 @@
     "slug": "aug-event",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/40355e5b-3b1c-4cfa-836d-28026524860b.jpeg",
+    "icon": "./assets/images/39080b9e-5985-4ab4-8518-0188f6dbb943.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/images/40355e5b-3b1c-4cfa-836d-28026524860b.jpeg",
+      "image": "./assets/images/39080b9e-5985-4ab4-8518-0188f6dbb943.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -21,13 +21,13 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/40355e5b-3b1c-4cfa-836d-28026524860b.jpeg",
+        "foregroundImage": "./assets/images/39080b9e-5985-4ab4-8518-0188f6dbb943.png",
         "backgroundColor": "#ffffff"
       },
       "package": "com.augevent.app"
     },
     "web": {
-      "favicon": "./assets/images/40355e5b-3b1c-4cfa-836d-28026524860b.jpeg",
+      "favicon": "./assets/images/39080b9e-5985-4ab4-8518-0188f6dbb943.png",
       "bundler": "metro"
     },
     "plugins": [
@@ -35,7 +35,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/40355e5b-3b1c-4cfa-836d-28026524860b.jpeg",
+          "icon": "./assets/images/39080b9e-5985-4ab4-8518-0188f6dbb943.png",
           "color": "#8B5CF6"
         }
       ],
@@ -49,6 +49,20 @@
         "expo-camera",
         {
           "cameraPermission": "Allow AUG-Event to access camera to scan QR codes and take photos for events."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow AUG-Event to access your photos to upload images to event albums.",
+          "cameraPermission": "Allow AUG-Event to access camera to take photos for events."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow AUG-Event to save photos to your device.",
+          "savePhotosPermission": "Allow AUG-Event to save photos to your device."
         }
       ]
     ],

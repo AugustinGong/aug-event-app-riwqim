@@ -18,11 +18,14 @@
     "close": "Close"
   },
   "auth": {
+    "login": "Login",
+    "register": "Register",
     "signIn": "Sign In",
     "signUp": "Sign Up",
     "signOut": "Sign Out",
     "email": "Email",
     "password": "Password",
+    "confirmPassword": "Confirm Password",
     "name": "Full Name",
     "forgotPassword": "Forgot Password?",
     "dontHaveAccount": "Don't have an account?",
@@ -37,7 +40,8 @@
     "signOutSuccess": "Signed out successfully",
     "invalidCredentials": "Invalid email or password",
     "emailNotVerified": "Please verify your email address",
-    "verifyEmailSent": "Verification email sent! Please check your inbox."
+    "verifyEmailSent": "Verification email sent! Please check your inbox.",
+    "emailVerification": "Email Verification"
   },
   "home": {
     "title": "My Events",

@@ -18,11 +18,14 @@
     "close": "Chiudi"
   },
   "auth": {
+    "login": "Accedi",
+    "register": "Registrati",
     "signIn": "Accedi",
     "signUp": "Registrati",
     "signOut": "Esci",
     "email": "Email",
     "password": "Password",
+    "confirmPassword": "Conferma Password",
     "name": "Nome completo",
     "forgotPassword": "Password dimenticata?",
     "dontHaveAccount": "Non hai un account?",
@@ -37,7 +40,8 @@
     "signOutSuccess": "Disconnesso con successo",
     "invalidCredentials": "Email o password non validi",
     "emailNotVerified": "Verifica il tuo indirizzo email",
-    "verifyEmailSent": "Email di verifica inviata! Controlla la tua casella di posta."
+    "verifyEmailSent": "Email di verifica inviata! Controlla la tua casella di posta.",
+    "emailVerification": "Verifica Email"
   },
   "home": {
     "title": "I Miei Eventi",

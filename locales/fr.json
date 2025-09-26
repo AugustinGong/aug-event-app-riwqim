@@ -18,11 +18,14 @@
     "close": "Fermer"
   },
   "auth": {
+    "login": "Connexion",
+    "register": "Inscription",
     "signIn": "Se connecter",
     "signUp": "S'inscrire",
     "signOut": "Se déconnecter",
     "email": "Email",
     "password": "Mot de passe",
+    "confirmPassword": "Confirmer le Mot de Passe",
     "name": "Nom complet",
     "forgotPassword": "Mot de passe oublié ?",
     "dontHaveAccount": "Vous n'avez pas de compte ?",
@@ -37,7 +40,8 @@
     "signOutSuccess": "Déconnecté avec succès",
     "invalidCredentials": "Email ou mot de passe invalide",
     "emailNotVerified": "Veuillez vérifier votre adresse email",
-    "verifyEmailSent": "Email de vérification envoyé ! Vérifiez votre boîte de réception."
+    "verifyEmailSent": "Email de vérification envoyé ! Vérifiez votre boîte de réception.",
+    "emailVerification": "Vérification Email"
   },
   "home": {
     "title": "Mes Événements",

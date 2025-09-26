@@ -1,10 +1,10 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Alert } from 'react-native';
 import { commonStyles, colors, buttonStyles } from '../styles/commonStyles';
 import Icon from './Icon';
 import SimpleBottomSheet from './BottomSheet';
-import i18n, { changeLanguage, getAvailableLanguages, getCurrentLanguage } from '../config/i18n';
+import i18n, { changeLanguage, getAvailableLanguages, getCurrentLanguage, addLanguageChangeListener } from '../config/i18n';
 
 interface LanguageSelectorProps {
   onLanguageChange?: () => void;
@@ -14,13 +14,29 @@ interface LanguageSelectorProps {
 export default function LanguageSelector({ onLanguageChange, isFloating = false }: LanguageSelectorProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [currentLanguage, setCurrentLanguage] = useState(getCurrentLanguage());
+  const [forceUpdate, setForceUpdate] = useState(0);
   const availableLanguages = getAvailableLanguages();
+
+  useEffect(() => {
+    // Add listener for language changes to force re-render
+    const removeListener = addLanguageChangeListener(() => {
+      console.log('Language changed, updating UI');
+      setCurrentLanguage(getCurrentLanguage());
+      setForceUpdate(prev => prev + 1);
+    });
+
+    return removeListener;
+  }, []);
 
   const handleLanguageSelect = async (languageCode: string) => {
     try {
+      console.log('Changing language to:', languageCode);
       await changeLanguage(languageCode);
       setCurrentLanguage(languageCode);
       setIsVisible(false);
+      
+      // Force a re-render by updating state
+      setForceUpdate(prev => prev + 1);
       
       Alert.alert(
         i18n.t('settings.languageChanged'),

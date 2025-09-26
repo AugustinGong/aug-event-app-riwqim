@@ -1,18 +1,18 @@
 
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { Event } from '../types';
 import { commonStyles, colors } from '../styles/commonStyles';
 import Icon from './Icon';
+import { Event } from '../types';
 import i18n from '../config/i18n';
 
 interface EventCardProps {
   event: Event;
   onPress: () => void;
-  isOrganizer?: boolean;
+  isOrganizer: boolean;
 }
 
-export default function EventCard({ event, onPress, isOrganizer = false }: EventCardProps) {
+export default function EventCard({ event, onPress, isOrganizer }: EventCardProps) {
   const getEventTypeIcon = (eventType: string) => {
     const iconMap: { [key: string]: string } = {
       wedding: 'heart',
@@ -42,30 +42,62 @@ export default function EventCard({ event, onPress, isOrganizer = false }: Event
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return colors.success;
-      case 'ended':
-        return colors.textSecondary;
-      default:
-        return colors.primary;
+    const colorMap: { [key: string]: string } = {
+      upcoming: colors.primary,
+      active: colors.success,
+      ended: colors.textSecondary,
+      cancelled: colors.error,
+    };
+    return colorMap[status] || colors.textSecondary;
+  };
+
+  const getStatusIcon = (status: string) => {
+    const iconMap: { [key: string]: string } = {
+      upcoming: 'clock',
+      active: 'play-circle',
+      ended: 'check-circle',
+      cancelled: 'x-circle',
+    };
+    return iconMap[status] || 'clock';
+  };
+
+  const formatEventDate = (date: Date) => {
+    const now = new Date();
+    const eventDate = new Date(date);
+    const diffTime = eventDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) {
+      return 'Today';
+    } else if (diffDays === 1) {
+      return 'Tomorrow';
+    } else if (diffDays > 0 && diffDays <= 7) {
+      return `In ${diffDays} days`;
+    } else if (diffDays < 0 && diffDays >= -7) {
+      return `${Math.abs(diffDays)} days ago`;
+    } else {
+      return eventDate.toLocaleDateString();
     }
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'Live';
-      case 'ended':
-        return 'Ended';
-      default:
-        return 'Upcoming';
-    }
-  };
+  const isCancelled = event.status === 'cancelled';
 
   return (
-    <TouchableOpacity style={[commonStyles.card, { marginBottom: 15 }]} onPress={onPress}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+    <TouchableOpacity
+      style={[
+        commonStyles.card,
+        { 
+          marginBottom: 15,
+          opacity: isCancelled ? 0.7 : 1,
+          borderLeftWidth: 4,
+          borderLeftColor: getStatusColor(event.status),
+        }
+      ]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+        {/* Event Type Icon */}
         <View style={{
           width: 50,
           height: 50,
@@ -75,86 +107,101 @@ export default function EventCard({ event, onPress, isOrganizer = false }: Event
           alignItems: 'center',
           marginRight: 15,
         }}>
-          <Icon name={getEventTypeIcon(event.eventType)} size={24} color={getEventTypeColor(event.eventType)} />
+          <Icon 
+            name={getEventTypeIcon(event.eventType)} 
+            size={24} 
+            color={getEventTypeColor(event.eventType)} 
+          />
         </View>
-        
+
+        {/* Event Details */}
         <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-            <Text style={[commonStyles.subtitle]} numberOfLines={1}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
+            <Text style={[commonStyles.subtitle, { flex: 1, color: isCancelled ? colors.textSecondary : colors.text }]} numberOfLines={1}>
               {event.title}
             </Text>
-            <View style={{
-              paddingHorizontal: 8,
-              paddingVertical: 4,
-              borderRadius: 12,
-              backgroundColor: getStatusColor(event.status || 'upcoming') + '20',
-            }}>
-              <Text style={{
-                fontSize: 10,
-                fontWeight: '600',
-                color: getStatusColor(event.status || 'upcoming'),
-                textTransform: 'uppercase',
+            {isOrganizer && (
+              <View style={{
+                backgroundColor: colors.primaryLight,
+                paddingHorizontal: 8,
+                paddingVertical: 2,
+                borderRadius: 12,
+                marginLeft: 8,
               }}>
-                {getStatusText(event.status || 'upcoming')}
-              </Text>
-            </View>
+                <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '600' }}>
+                  ORGANIZER
+                </Text>
+              </View>
+            )}
           </View>
-          
-          <Text style={[commonStyles.textSecondary, { fontSize: 12, textTransform: 'capitalize', marginBottom: 4 }]}>
-            {i18n.t(`eventTypes.${event.eventType}`)}
-          </Text>
-          
-          {isOrganizer && (
-            <View style={{
-              paddingHorizontal: 6,
-              paddingVertical: 2,
+
+          {/* Status and Date */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+            <Icon 
+              name={getStatusIcon(event.status)} 
+              size={14} 
+              color={getStatusColor(event.status)} 
+            />
+            <Text style={[
+              commonStyles.textSecondary, 
+              { 
+                marginLeft: 6, 
+                fontSize: 12, 
+                textTransform: 'capitalize',
+                color: getStatusColor(event.status),
+                fontWeight: '600'
+              }
+            ]}>
+              {event.status}
+            </Text>
+            <Text style={[commonStyles.textSecondary, { marginLeft: 8, fontSize: 12 }]}>
+              • {formatEventDate(event.date)}
+            </Text>
+          </View>
+
+          {/* Location */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+            <Icon name="map-pin" size={14} color={colors.textSecondary} />
+            <Text style={[commonStyles.textSecondary, { marginLeft: 6, fontSize: 12 }]} numberOfLines={1}>
+              {event.location}
+            </Text>
+          </View>
+
+          {/* Participants Count */}
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Icon name="users" size={14} color={colors.textSecondary} />
+            <Text style={[commonStyles.textSecondary, { marginLeft: 6, fontSize: 12 }]}>
+              {event.participants.length} participant{event.participants.length === 1 ? '' : 's'}
+            </Text>
+            {event.menu.length > 0 && (
+              <>
+                <Text style={[commonStyles.textSecondary, { marginLeft: 8, fontSize: 12 }]}>
+                  • {event.menu.length} course{event.menu.length === 1 ? '' : 's'}
+                </Text>
+              </>
+            )}
+          </View>
+
+          {/* Cancelled Status Message */}
+          {isCancelled && (
+            <View style={{ 
+              marginTop: 10, 
+              padding: 8, 
+              backgroundColor: colors.errorLight, 
               borderRadius: 8,
-              backgroundColor: colors.primaryLight,
-              alignSelf: 'flex-start',
+              flexDirection: 'row',
+              alignItems: 'center'
             }}>
-              <Text style={{
-                fontSize: 10,
-                fontWeight: '600',
-                color: colors.primary,
-                textTransform: 'uppercase',
-              }}>
-                Organizer
+              <Icon name="x-circle" size={14} color={colors.error} />
+              <Text style={[commonStyles.textSecondary, { marginLeft: 6, fontSize: 11, color: colors.error }]}>
+                {i18n.t('event.eventCancelledStatus')}
               </Text>
             </View>
           )}
         </View>
-      </View>
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-        <Icon name="calendar" size={14} color={colors.textSecondary} />
-        <Text style={[commonStyles.textSecondary, { marginLeft: 6, fontSize: 12 }]}>
-          {event.date.toLocaleDateString()} at {event.date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </Text>
-      </View>
-
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-        <Icon name="map-pin" size={14} color={colors.textSecondary} />
-        <Text style={[commonStyles.textSecondary, { marginLeft: 6, fontSize: 12 }]} numberOfLines={1}>
-          {event.location}
-        </Text>
-      </View>
-
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Icon name="users" size={14} color={colors.textSecondary} />
-          <Text style={[commonStyles.textSecondary, { marginLeft: 6, fontSize: 12 }]}>
-            {event.participants?.length || 0} participants
-          </Text>
-        </View>
-        
-        {event.accessPassword && (
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Icon name="key" size={14} color={colors.textSecondary} />
-            <Text style={[commonStyles.textSecondary, { marginLeft: 4, fontSize: 12, fontFamily: 'monospace' }]}>
-              {event.accessPassword}
-            </Text>
-          </View>
-        )}
+        {/* Arrow Icon */}
+        <Icon name="chevron-right" size={20} color={colors.textSecondary} />
       </View>
     </TouchableOpacity>
   );

@@ -1,20 +1,31 @@
 
+import React, { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
-import { useAuth } from '../hooks/useAuth';
-import { initializeLanguage } from '../config/i18n';
-import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { initializeLanguage } from '../config/i18n';
 
 export default function RootLayout() {
-  const { isLoading } = useAuth();
+  const [languageInitialized, setLanguageInitialized] = useState(false);
 
   useEffect(() => {
-    // Initialize language on app start
-    initializeLanguage().catch((error) => {
-      console.log('Error initializing language:', error);
-    });
+    const initLanguage = async () => {
+      try {
+        await initializeLanguage();
+        console.log('Language initialized successfully');
+      } catch (error) {
+        console.log('Error initializing language:', error);
+      } finally {
+        setLanguageInitialized(true);
+      }
+    };
+
+    initLanguage();
   }, []);
+
+  if (!languageInitialized) {
+    return null; // Show nothing while initializing language
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

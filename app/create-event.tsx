@@ -1,31 +1,42 @@
 
-import { useRouter } from 'expo-router';
-import { useEvents } from '../hooks/useEvents';
-import i18n from '../config/i18n';
-import React, { useState } from 'react';
-import { useAuth } from '../hooks/useAuth';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, KeyboardAvoidingView, Platform, Keyboard, TouchableWithoutFeedback } from 'react-native';
-import { MenuCourse, EventType, EventTypeOption } from '../types';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import Icon from '../components/Icon';
-import { commonStyles, colors, buttonStyles } from '../styles/commonStyles';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Redirect } from 'expo-router';
+import { useEvents } from '../hooks/useEvents';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, KeyboardAvoidingView, Platform, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import LanguageSelector from '../components/LanguageSelector';
+import { useRouter } from 'expo-router';
+import { commonStyles, colors, buttonStyles } from '../styles/commonStyles';
+import i18n, { addLanguageChangeListener } from '../config/i18n';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useState, useEffect } from 'react';
+import { MenuCourse, EventType, EventTypeOption } from '../types';
+import Icon from '../components/Icon';
+import { Redirect } from 'expo-router';
+import { useAuth } from '../hooks/useAuth';
 
 export default function CreateEventScreen() {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading } = useAuth();
   const { createEvent } = useEvents();
-  
-  // Initialize all state hooks at the top level
+  const { user, isAuthenticated, isLoading } = useAuth();
+  const [forceUpdate, setForceUpdate] = useState(0);
+
+  // Add language change listener for automatic UI updates
+  useEffect(() => {
+    const removeListener = addLanguageChangeListener(() => {
+      console.log('Language changed in CreateEventScreen, forcing re-render');
+      setForceUpdate(prev => prev + 1);
+    });
+
+    return removeListener;
+  }, []);
+
+  // Form state
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
   const [date, setDate] = useState(new Date());
-  const [eventType, setEventType] = useState<EventType>('celebration');
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [courses, setCourses] = useState<MenuCourse[]>([]);
+  const [eventType, setEventType] = useState<EventType>('celebration');
+  const [menu, setMenu] = useState<MenuCourse[]>([]);
   const [loading, setLoading] = useState(false);
 
   // Redirect to login if not authenticated
@@ -46,50 +57,47 @@ export default function CreateEventScreen() {
   }
 
   const eventTypeOptions: EventTypeOption[] = [
-    { type: 'wedding', name: i18n.t('eventTypes.wedding'), icon: 'heart', color: '#FF69B4' },
-    { type: 'birthday', name: i18n.t('eventTypes.birthday'), icon: 'gift', color: '#FFD700' },
-    { type: 'celebration', name: i18n.t('eventTypes.celebration'), icon: 'star', color: '#8B5CF6' },
-    { type: 'anniversary', name: i18n.t('eventTypes.anniversary'), icon: 'calendar', color: '#FF6B6B' },
-    { type: 'graduation', name: i18n.t('eventTypes.graduation'), icon: 'award', color: '#4ECDC4' },
-    { type: 'corporate', name: i18n.t('eventTypes.corporate'), icon: 'briefcase', color: '#45B7D1' },
-    { type: 'party', name: i18n.t('eventTypes.party'), icon: 'music', color: '#96CEB4' },
-    { type: 'other', name: i18n.t('eventTypes.other'), icon: 'more-horizontal', color: '#95A5A6' },
+    { type: 'wedding', icon: 'heart', color: '#FF69B4' },
+    { type: 'birthday', icon: 'gift', color: '#FFD700' },
+    { type: 'celebration', icon: 'star', color: '#8B5CF6' },
+    { type: 'anniversary', icon: 'calendar', color: '#FF6B6B' },
+    { type: 'graduation', icon: 'award', color: '#4ECDC4' },
+    { type: 'corporate', icon: 'briefcase', color: '#45B7D1' },
+    { type: 'party', icon: 'music', color: '#96CEB4' },
+    { type: 'other', icon: 'more-horizontal', color: '#95A5A6' },
   ];
 
   const courseTypes = [
-    { type: 'appetizer' as const, name: i18n.t('event.courses.appetizer'), icon: 'utensils' },
-    { type: 'first' as const, name: i18n.t('event.courses.first'), icon: 'bowl' },
-    { type: 'main' as const, name: i18n.t('event.courses.main'), icon: 'drumstick-bite' },
-    { type: 'dessert' as const, name: i18n.t('event.courses.dessert'), icon: 'ice-cream' },
-    { type: 'cake' as const, name: i18n.t('event.courses.cake'), icon: 'birthday-cake' },
+    { type: 'appetizer' as const, icon: 'coffee', label: i18n.t('event.courses.appetizer') },
+    { type: 'first' as const, icon: 'bowl', label: i18n.t('event.courses.first') },
+    { type: 'main' as const, icon: 'utensils', label: i18n.t('event.courses.main') },
+    { type: 'dessert' as const, icon: 'ice-cream', label: i18n.t('event.courses.dessert') },
+    { type: 'cake' as const, icon: 'cake', label: i18n.t('event.courses.cake') },
   ];
 
   const addCourse = (type: typeof courseTypes[number]['type']) => {
     const newCourse: MenuCourse = {
       id: Date.now().toString(),
-      type,
       name: '',
+      type,
       description: '',
       isServed: false,
     };
-    setCourses([...courses, newCourse]);
+    setMenu([...menu, newCourse]);
   };
 
   const removeCourse = (index: number) => {
-    setCourses(courses.filter((_, i) => i !== index));
+    const newMenu = menu.filter((_, i) => i !== index);
+    setMenu(newMenu);
   };
 
   const updateCourse = (index: number, field: 'name' | 'description', value: string) => {
-    const updatedCourses = [...courses];
-    updatedCourses[index] = { ...updatedCourses[index], [field]: value };
-    setCourses(updatedCourses);
+    const newMenu = [...menu];
+    newMenu[index] = { ...newMenu[index], [field]: value };
+    setMenu(newMenu);
   };
 
   const handleCreateEvent = async () => {
-    console.log('Starting event creation...');
-    console.log('Current user:', user?.id, user?.email);
-    console.log('Is authenticated:', isAuthenticated);
-
     if (!title.trim()) {
       Alert.alert(i18n.t('common.error'), 'Please enter an event title');
       return;
@@ -100,57 +108,40 @@ export default function CreateEventScreen() {
       return;
     }
 
-    if (courses.length === 0) {
-      Alert.alert(i18n.t('common.error'), 'Please add at least one course');
-      return;
-    }
-
-    // Validate courses have names
-    const invalidCourses = courses.filter(course => !course.name.trim());
-    if (invalidCourses.length > 0) {
-      Alert.alert(i18n.t('common.error'), 'Please fill in all course names');
+    // Validate menu courses
+    const validMenu = menu.filter(course => course.name.trim() !== '');
+    if (menu.length > 0 && validMenu.length === 0) {
+      Alert.alert(i18n.t('common.error'), 'Please complete the menu courses or remove them');
       return;
     }
 
     setLoading(true);
     try {
-      console.log('Calling createEvent with data:', {
-        title: title.trim(),
-        description: description.trim(),
-        location: location.trim(),
-        eventType,
-        date,
-        menuCount: courses.length,
-      });
-
       const result = await createEvent({
         title: title.trim(),
         description: description.trim(),
+        date,
         location: location.trim(),
         eventType,
-        date,
-        menu: courses,
+        menu: validMenu,
       });
 
-      console.log('Create event result:', result);
-
-      if (result.success && result.event) {
+      if (result.success) {
         Alert.alert(
           i18n.t('common.success'),
-          `Event created successfully! Access password: ${result.event.access_password}`,
+          i18n.t('createEvent.eventCreated'),
           [
             {
               text: i18n.t('common.ok'),
-              onPress: () => router.push(`/event/${result.event!.id}`),
+              onPress: () => router.replace('/home'),
             },
           ]
         );
       } else {
-        console.log('Event creation failed:', result.error);
         Alert.alert(i18n.t('common.error'), result.error || 'Failed to create event');
       }
     } catch (error: any) {
-      console.log('Create event error:', error);
+      console.log('Error creating event:', error);
       Alert.alert(i18n.t('common.error'), error.message || 'Failed to create event');
     } finally {
       setLoading(false);
@@ -162,12 +153,13 @@ export default function CreateEventScreen() {
   };
 
   return (
-    <SafeAreaView style={[commonStyles.container, { backgroundColor: colors.background }]}>
-      <TouchableWithoutFeedback onPress={dismissKeyboard}>
-        <KeyboardAvoidingView
+    <TouchableWithoutFeedback onPress={dismissKeyboard}>
+      <SafeAreaView style={[commonStyles.container, { backgroundColor: colors.background }]}>
+        <KeyboardAvoidingView 
+          style={{ flex: 1 }} 
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
         >
+          {/* Header */}
           <View style={[commonStyles.header, { paddingHorizontal: 20 }]}>
             <TouchableOpacity onPress={() => router.back()}>
               <Icon name="arrow-left" size={24} color={colors.text} />
@@ -178,109 +170,129 @@ export default function CreateEventScreen() {
             <View style={{ width: 24 }} />
           </View>
 
-          <ScrollView
-            style={{ flex: 1 }}
-            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100 }}
+          <ScrollView 
+            style={{ flex: 1 }} 
+            contentContainerStyle={{ paddingBottom: 100 }}
             keyboardShouldPersistTaps="handled"
           >
-            <View style={[commonStyles.card, { marginBottom: 20 }]}>
+            <View style={{ padding: 20 }}>
+              {/* Event Details Section */}
               <Text style={[commonStyles.sectionTitle, { marginBottom: 20 }]}>
                 {i18n.t('createEvent.eventDetails')}
               </Text>
 
+              {/* Event Title */}
               <View style={{ marginBottom: 20 }}>
                 <Text style={[commonStyles.label, { marginBottom: 8 }]}>
                   {i18n.t('createEvent.eventTitle')}
                 </Text>
                 <TextInput
                   style={commonStyles.input}
+                  placeholder={i18n.t('createEvent.eventTitlePlaceholder')}
+                  placeholderTextColor={colors.textSecondary}
                   value={title}
                   onChangeText={setTitle}
-                  placeholder={i18n.t('createEvent.eventTitlePlaceholder')}
+                  maxLength={100}
                 />
               </View>
 
+              {/* Description */}
               <View style={{ marginBottom: 20 }}>
                 <Text style={[commonStyles.label, { marginBottom: 8 }]}>
                   {i18n.t('createEvent.description')}
                 </Text>
                 <TextInput
                   style={[commonStyles.input, { height: 80, textAlignVertical: 'top' }]}
+                  placeholder={i18n.t('createEvent.descriptionPlaceholder')}
+                  placeholderTextColor={colors.textSecondary}
                   value={description}
                   onChangeText={setDescription}
-                  placeholder={i18n.t('createEvent.descriptionPlaceholder')}
                   multiline
+                  maxLength={500}
                 />
               </View>
 
+              {/* Event Type */}
               <View style={{ marginBottom: 20 }}>
-                <Text style={[commonStyles.label, { marginBottom: 8 }]}>
+                <Text style={[commonStyles.label, { marginBottom: 12 }]}>
                   {i18n.t('createEvent.eventType')}
                 </Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
-                  <View style={{ flexDirection: 'row', paddingRight: 20 }}>
-                    {eventTypeOptions.map((option) => (
-                      <TouchableOpacity
-                        key={option.type}
-                        style={[
-                          {
-                            marginRight: 12,
-                            paddingHorizontal: 16,
-                            paddingVertical: 12,
-                            borderRadius: 20,
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            borderWidth: 2,
-                          },
-                          eventType === option.type
-                            ? { backgroundColor: option.color + '20', borderColor: option.color }
-                            : { backgroundColor: colors.cardBackground, borderColor: colors.border }
-                        ]}
-                        onPress={() => setEventType(option.type)}
-                      >
-                        <Icon 
-                          name={option.icon} 
-                          size={16} 
-                          color={eventType === option.type ? option.color : colors.textSecondary} 
-                        />
-                        <Text style={[
-                          { marginLeft: 8, fontSize: 14, fontWeight: '500' },
-                          eventType === option.type 
-                            ? { color: option.color }
-                            : { color: colors.textSecondary }
-                        ]}>
-                          {option.name}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </ScrollView>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                  {eventTypeOptions.map((option) => (
+                    <TouchableOpacity
+                      key={option.type}
+                      style={[
+                        {
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          paddingHorizontal: 16,
+                          paddingVertical: 12,
+                          borderRadius: 12,
+                          borderWidth: 2,
+                          minWidth: '45%',
+                        },
+                        eventType === option.type
+                          ? { 
+                              backgroundColor: option.color + '20', 
+                              borderColor: option.color 
+                            }
+                          : { 
+                              backgroundColor: colors.cardBackground, 
+                              borderColor: colors.border 
+                            }
+                      ]}
+                      onPress={() => setEventType(option.type)}
+                    >
+                      <Icon 
+                        name={option.icon} 
+                        size={18} 
+                        color={eventType === option.type ? option.color : colors.textSecondary} 
+                      />
+                      <Text style={[
+                        commonStyles.text,
+                        { 
+                          marginLeft: 8, 
+                          fontSize: 14,
+                          color: eventType === option.type ? option.color : colors.text 
+                        }
+                      ]}>
+                        {i18n.t(`eventTypes.${option.type}`)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
 
+              {/* Location */}
               <View style={{ marginBottom: 20 }}>
                 <Text style={[commonStyles.label, { marginBottom: 8 }]}>
                   {i18n.t('createEvent.location')}
                 </Text>
                 <TextInput
                   style={commonStyles.input}
+                  placeholder={i18n.t('createEvent.locationPlaceholder')}
+                  placeholderTextColor={colors.textSecondary}
                   value={location}
                   onChangeText={setLocation}
-                  placeholder={i18n.t('createEvent.locationPlaceholder')}
+                  maxLength={200}
                 />
               </View>
 
-              <View style={{ marginBottom: 20 }}>
+              {/* Date & Time */}
+              <View style={{ marginBottom: 30 }}>
                 <Text style={[commonStyles.label, { marginBottom: 8 }]}>
                   {i18n.t('createEvent.dateTime')}
                 </Text>
                 <TouchableOpacity
-                  style={[commonStyles.input, { justifyContent: 'center' }]}
+                  style={[commonStyles.input, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
                   onPress={() => setShowDatePicker(true)}
                 >
                   <Text style={{ color: colors.text }}>
-                    {date.toLocaleDateString()} {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {date.toLocaleDateString()} at {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </Text>
+                  <Icon name="calendar" size={20} color={colors.textSecondary} />
                 </TouchableOpacity>
+
                 {showDatePicker && (
                   <DateTimePicker
                     value={date}
@@ -292,67 +304,61 @@ export default function CreateEventScreen() {
                         setDate(selectedDate);
                       }
                     }}
+                    minimumDate={new Date()}
                   />
                 )}
               </View>
-            </View>
 
-            <View style={[commonStyles.card, { marginBottom: 20 }]}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                <Text style={commonStyles.sectionTitle}>
-                  {i18n.t('createEvent.menu')}
-                </Text>
-              </View>
-
-              <Text style={[commonStyles.textSecondary, { marginBottom: 20 }]}>
+              {/* Menu Section */}
+              <Text style={[commonStyles.sectionTitle, { marginBottom: 10 }]}>
+                {i18n.t('createEvent.menu')}
+              </Text>
+              <Text style={[commonStyles.textSecondary, { marginBottom: 20, fontSize: 14 }]}>
                 {i18n.t('createEvent.addCourses')}
               </Text>
 
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 20 }}>
+              {/* Course Type Buttons */}
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 }}>
                 {courseTypes.map((courseType) => (
                   <TouchableOpacity
                     key={courseType.type}
-                    style={[
-                      buttonStyles.secondary,
-                      { 
-                        marginRight: 10, 
-                        marginBottom: 10, 
-                        paddingHorizontal: 16, 
-                        paddingVertical: 8,
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                      }
-                    ]}
+                    style={[buttonStyles.secondary, { flexDirection: 'row', alignItems: 'center' }]}
                     onPress={() => addCourse(courseType.type)}
                   >
                     <Icon name={courseType.icon} size={16} color={colors.primary} />
-                    <Text style={{ color: colors.primary, marginLeft: 8, fontSize: 14 }}>
-                      {courseType.name}
+                    <Text style={{ color: colors.primary, marginLeft: 6, fontSize: 12 }}>
+                      {courseType.label}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
 
-              {courses.map((course, index) => (
-                <View key={course.id} style={{ marginBottom: 20, padding: 16, backgroundColor: colors.cardBackground, borderRadius: 12 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <Text style={[commonStyles.subtitle, { color: colors.primary }]}>
-                      {courseTypes.find(ct => ct.type === course.type)?.name}
+              {/* Menu Courses */}
+              {menu.map((course, index) => (
+                <View key={course.id} style={[commonStyles.card, { marginBottom: 15 }]}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
+                    <Text style={[commonStyles.subtitle, { color: colors.primary, textTransform: 'capitalize' }]}>
+                      {i18n.t(`event.courses.${course.type}`)}
                     </Text>
-                    <TouchableOpacity onPress={() => removeCourse(index)}>
-                      <Icon name="trash-2" size={20} color={colors.error} />
+                    <TouchableOpacity
+                      onPress={() => removeCourse(index)}
+                      style={{ padding: 4 }}
+                    >
+                      <Icon name="x" size={20} color={colors.error} />
                     </TouchableOpacity>
                   </View>
 
-                  <View style={{ marginBottom: 12 }}>
+                  <View style={{ marginBottom: 15 }}>
                     <Text style={[commonStyles.label, { marginBottom: 8 }]}>
                       {i18n.t('createEvent.courseName')}
                     </Text>
                     <TextInput
                       style={commonStyles.input}
-                      value={course.name}
-                      onChangeText={(value) => updateCourse(index, 'name', value)}
                       placeholder={i18n.t('createEvent.courseNamePlaceholder')}
+                      placeholderTextColor={colors.textSecondary}
+                      value={course.name}
+                      onChangeText={(text) => updateCourse(index, 'name', text)}
+                      maxLength={100}
                     />
                   </View>
 
@@ -362,38 +368,52 @@ export default function CreateEventScreen() {
                     </Text>
                     <TextInput
                       style={[commonStyles.input, { height: 60, textAlignVertical: 'top' }]}
-                      value={course.description}
-                      onChangeText={(value) => updateCourse(index, 'description', value)}
                       placeholder={i18n.t('createEvent.courseDescriptionPlaceholder')}
+                      placeholderTextColor={colors.textSecondary}
+                      value={course.description}
+                      onChangeText={(text) => updateCourse(index, 'description', text)}
                       multiline
+                      maxLength={200}
                     />
                   </View>
                 </View>
               ))}
             </View>
+          </ScrollView>
 
+          {/* Create Button */}
+          <View style={{ padding: 20, backgroundColor: colors.background }}>
             <TouchableOpacity
-              style={[buttonStyles.primary, { marginBottom: 20 }]}
+              style={[buttonStyles.primary, { opacity: loading ? 0.7 : 1 }]}
               onPress={handleCreateEvent}
               disabled={loading}
             >
-              <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>
-                {loading ? i18n.t('common.loading') : i18n.t('createEvent.createEvent')}
-              </Text>
+              {loading ? (
+                <Text style={{ color: 'white', fontWeight: '600' }}>
+                  {i18n.t('common.loading')}
+                </Text>
+              ) : (
+                <>
+                  <Icon name="plus" size={20} color="white" />
+                  <Text style={{ color: 'white', marginLeft: 8, fontWeight: '600' }}>
+                    {i18n.t('createEvent.createEvent')}
+                  </Text>
+                </>
+              )}
             </TouchableOpacity>
-          </ScrollView>
+          </View>
 
           {/* Floating Language Selector Bubble */}
           <View style={{
             position: 'absolute',
-            bottom: 30,
+            bottom: 100,
             right: 20,
             zIndex: 1000,
           }}>
             <LanguageSelector isFloating={true} />
           </View>
         </KeyboardAvoidingView>
-      </TouchableWithoutFeedback>
-    </SafeAreaView>
+      </SafeAreaView>
+    </TouchableWithoutFeedback>
   );
 }

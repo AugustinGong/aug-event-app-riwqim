@@ -9,7 +9,7 @@ import { Event } from '../../types';
 import PhotoGallery from '../../components/PhotoGallery';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import i18n from '../../config/i18n';
+import i18n, { addLanguageChangeListener } from '../../config/i18n';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import LanguageSelector from '../../components/LanguageSelector';
@@ -18,7 +18,7 @@ type TabType = 'menu' | 'notifications' | 'album' | 'access';
 
 export default function EventDetailScreen() {
   const { user, isAuthenticated, isLoading } = useAuth();
-  const { getEventById, updateEventStatus, markCourseServed, regenerateEventPassword } = useEvents();
+  const { getEventById, updateEventStatus, markCourseServed, regenerateEventPassword, cancelEvent } = useEvents();
   const { sendNotification } = useNotifications();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -27,6 +27,17 @@ export default function EventDetailScreen() {
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('menu');
+  const [forceUpdate, setForceUpdate] = useState(0);
+
+  // Add language change listener for automatic UI updates
+  useEffect(() => {
+    const removeListener = addLanguageChangeListener(() => {
+      console.log('Language changed in EventDetailScreen, forcing re-render');
+      setForceUpdate(prev => prev + 1);
+    });
+
+    return removeListener;
+  }, []);
 
   // Move all hooks to the top level, before any conditional logic
   const loadEventData = useCallback(async () => {
@@ -79,6 +90,7 @@ export default function EventDetailScreen() {
 
   const isOrganizer = user?.id === event.organizerId;
   const canUpload = true; // All participants can upload photos
+  const isCancelled = event.status === 'cancelled';
 
   const handleToggleEventStatus = async () => {
     try {
@@ -89,6 +101,35 @@ export default function EventDetailScreen() {
       console.log('Error updating event status:', error);
       Alert.alert(i18n.t('common.error'), error.message || 'Failed to update event status');
     }
+  };
+
+  const handleCancelEvent = async () => {
+    Alert.alert(
+      i18n.t('event.cancelEvent'),
+      i18n.t('event.confirmCancelEvent'),
+      [
+        { text: i18n.t('common.cancel'), style: 'cancel' },
+        {
+          text: i18n.t('event.cancelEvent'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const result = await cancelEvent(event.id);
+              if (result.success) {
+                Alert.alert(
+                  i18n.t('common.success'),
+                  i18n.t('event.eventCancelled')
+                );
+                await loadEventData(); // Reload event data
+              }
+            } catch (error: any) {
+              console.log('Error cancelling event:', error);
+              Alert.alert(i18n.t('common.error'), error.message || 'Failed to cancel event');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleMarkCourseServed = async (courseId: string) => {
@@ -187,11 +228,32 @@ export default function EventDetailScreen() {
     return colorMap[eventType] || '#8B5CF6';
   };
 
+  const getStatusColor = (status: string) => {
+    const colorMap: { [key: string]: string } = {
+      upcoming: colors.primary,
+      active: colors.success,
+      ended: colors.textSecondary,
+      cancelled: colors.error,
+    };
+    return colorMap[status] || colors.textSecondary;
+  };
+
   const renderTabContent = () => {
     switch (activeTab) {
       case 'menu':
         return (
           <View style={{ padding: 20 }}>
+            {isCancelled && (
+              <View style={[commonStyles.card, { backgroundColor: colors.errorLight, marginBottom: 20 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Icon name="x-circle" size={20} color={colors.error} />
+                  <Text style={[commonStyles.text, { color: colors.error, marginLeft: 10, fontWeight: '600' }]}>
+                    {i18n.t('event.eventCancelledStatus')}
+                  </Text>
+                </View>
+              </View>
+            )}
+            
             {event.menu.length === 0 ? (
               <View style={[commonStyles.centerContent, { marginTop: 50 }]}>
                 <Icon name="utensils" size={64} color={colors.textSecondary} />
@@ -216,7 +278,7 @@ export default function EventDetailScreen() {
                         </Text>
                       )}
                     </View>
-                    {isOrganizer && (
+                    {isOrganizer && !isCancelled && (
                       <TouchableOpacity
                         style={[
                           buttonStyles.secondary,
@@ -251,7 +313,7 @@ export default function EventDetailScreen() {
             eventId={event.id}
             user={user!}
             isOrganizer={isOrganizer}
-            canUpload={canUpload}
+            canUpload={canUpload && !isCancelled}
           />
         );
 
@@ -285,27 +347,29 @@ export default function EventDetailScreen() {
                 </View>
               </View>
 
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <TouchableOpacity
-                  style={[buttonStyles.secondary, { flex: 1 }]}
-                  onPress={handleCopyEventDetails}
-                >
-                  <Icon name="copy" size={16} color={colors.primary} />
-                  <Text style={{ color: colors.primary, marginLeft: 8, fontSize: 14 }}>
-                    Copy Details
-                  </Text>
-                </TouchableOpacity>
+              {!isCancelled && (
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <TouchableOpacity
+                    style={[buttonStyles.secondary, { flex: 1 }]}
+                    onPress={handleCopyEventDetails}
+                  >
+                    <Icon name="copy" size={16} color={colors.primary} />
+                    <Text style={{ color: colors.primary, marginLeft: 8, fontSize: 14 }}>
+                      Copy Details
+                    </Text>
+                  </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[buttonStyles.secondary, { flex: 1 }]}
-                  onPress={handleShareEvent}
-                >
-                  <Icon name="share" size={16} color={colors.primary} />
-                  <Text style={{ color: colors.primary, marginLeft: 8, fontSize: 14 }}>
-                    Share Event
-                  </Text>
-                </TouchableOpacity>
-              </View>
+                  <TouchableOpacity
+                    style={[buttonStyles.secondary, { flex: 1 }]}
+                    onPress={handleShareEvent}
+                  >
+                    <Icon name="share" size={16} color={colors.primary} />
+                    <Text style={{ color: colors.primary, marginLeft: 8, fontSize: 14 }}>
+                      Share Event
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
 
             {isOrganizer && (
@@ -314,17 +378,35 @@ export default function EventDetailScreen() {
                   Organizer Actions
                 </Text>
                 <Text style={[commonStyles.textSecondary, { marginBottom: 15, fontSize: 12 }]}>
-                  Generate a new password if the current one has been compromised.
+                  {isCancelled 
+                    ? 'This event has been cancelled.' 
+                    : 'Manage your event settings and access controls.'
+                  }
                 </Text>
-                <TouchableOpacity
-                  style={[buttonStyles.secondary, { borderColor: colors.warning }]}
-                  onPress={handleRegeneratePassword}
-                >
-                  <Icon name="refresh-cw" size={16} color={colors.warning} />
-                  <Text style={{ color: colors.warning, marginLeft: 8, fontSize: 14 }}>
-                    Regenerate Password
-                  </Text>
-                </TouchableOpacity>
+                
+                {!isCancelled && (
+                  <>
+                    <TouchableOpacity
+                      style={[buttonStyles.secondary, { borderColor: colors.warning, marginBottom: 10 }]}
+                      onPress={handleRegeneratePassword}
+                    >
+                      <Icon name="refresh-cw" size={16} color={colors.warning} />
+                      <Text style={{ color: colors.warning, marginLeft: 8, fontSize: 14 }}>
+                        Regenerate Password
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[buttonStyles.secondary, { borderColor: colors.error }]}
+                      onPress={handleCancelEvent}
+                    >
+                      <Icon name="x-circle" size={16} color={colors.error} />
+                      <Text style={{ color: colors.error, marginLeft: 8, fontSize: 14 }}>
+                        {i18n.t('event.cancelEvent')}
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                )}
               </View>
             )}
           </View>
@@ -365,11 +447,11 @@ export default function EventDetailScreen() {
             <Text style={[commonStyles.title, { marginBottom: 5 }]}>
               {event.title}
             </Text>
-            <Text style={[commonStyles.textSecondary, { fontSize: 12, textTransform: 'capitalize' }]}>
+            <Text style={[commonStyles.textSecondary, { fontSize: 12, textTransform: 'capitalize', color: getStatusColor(event.status) }]}>
               {event.eventType} • {event.status}
             </Text>
           </View>
-          {isOrganizer && (
+          {isOrganizer && !isCancelled && (
             <TouchableOpacity
               style={[
                 buttonStyles.secondary,

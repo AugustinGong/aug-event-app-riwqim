@@ -117,6 +117,10 @@
     "copyEventId": "Copy Event ID",
     "eventPassword": "Event Password",
     "regeneratePassword": "Regenerate Password",
+    "cancelEvent": "Cancel Event",
+    "confirmCancelEvent": "Are you sure you want to cancel this event? This action cannot be undone.",
+    "eventCancelled": "Event cancelled successfully",
+    "eventCancelledStatus": "This event has been cancelled",
     "courses": {
       "appetizer": "Appetizer",
       "first": "First Course",
@@ -139,7 +143,8 @@
     "courseReady": "Course Ready",
     "eventUpdate": "Event Update",
     "photoUploaded": "Photo Uploaded",
-    "newParticipant": "New Participant"
+    "newParticipant": "New Participant",
+    "eventCancelled": "Event Cancelled"
   },
   "settings": {
     "title": "Settings",

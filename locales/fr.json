@@ -117,6 +117,10 @@
     "copyEventId": "Copier l'ID de l'Événement",
     "eventPassword": "Mot de Passe de l'Événement",
     "regeneratePassword": "Régénérer le Mot de Passe",
+    "cancelEvent": "Annuler l'Événement",
+    "confirmCancelEvent": "Êtes-vous sûr de vouloir annuler cet événement ? Cette action ne peut pas être annulée.",
+    "eventCancelled": "Événement annulé avec succès",
+    "eventCancelledStatus": "Cet événement a été annulé",
     "courses": {
       "appetizer": "Apéritif",
       "first": "Entrée",
@@ -139,7 +143,8 @@
     "courseReady": "Plat Prêt",
     "eventUpdate": "Mise à Jour de l'Événement",
     "photoUploaded": "Photo Téléchargée",
-    "newParticipant": "Nouveau Participant"
+    "newParticipant": "Nouveau Participant",
+    "eventCancelled": "Événement Annulé"
   },
   "settings": {
     "title": "Paramètres",

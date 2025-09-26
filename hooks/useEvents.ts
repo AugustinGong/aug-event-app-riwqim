@@ -232,7 +232,7 @@ export const useEvents = () => {
     }
   };
 
-  const updateEventStatus = async (eventId: string, status: 'upcoming' | 'live' | 'ended') => {
+  const updateEventStatus = async (eventId: string, status: 'upcoming' | 'active' | 'ended' | 'cancelled') => {
     if (!isSupabaseConfigured) {
       throw new Error('Supabase is not configured. Please set up your Supabase connection first.');
     }
@@ -258,6 +258,59 @@ export const useEvents = () => {
     }
   };
 
+  const cancelEvent = async (eventId: string) => {
+    if (!isSupabaseConfigured) {
+      throw new Error('Supabase is not configured. Please set up your Supabase connection first.');
+    }
+
+    try {
+      console.log('Cancelling event:', eventId);
+
+      // Get current user from auth
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Verify user is the organizer
+      const { data: eventData, error: eventError } = await supabase
+        .from('events')
+        .select('organizer_id, title')
+        .eq('id', eventId)
+        .single();
+
+      if (eventError) {
+        console.log('Error fetching event:', eventError);
+        throw new Error('Event not found');
+      }
+
+      if (eventData.organizer_id !== user.id) {
+        throw new Error('Only the event organizer can cancel the event');
+      }
+
+      // Update the event status to cancelled
+      const { error: updateError } = await supabase
+        .from('events')
+        .update({ status: 'cancelled' })
+        .eq('id', eventId);
+
+      if (updateError) {
+        console.log('Error cancelling event:', updateError);
+        throw updateError;
+      }
+
+      console.log('Event cancelled successfully');
+      
+      // Reload events to get the updated list
+      await loadEvents();
+      
+      return { success: true, message: `Event "${eventData.title}" has been cancelled` };
+    } catch (error: any) {
+      console.log('Error cancelling event:', error);
+      throw error;
+    }
+  };
+
   const joinEventWithPassword = async (eventId: string, password: string, userId?: string) => {
     if (!isSupabaseConfigured) {
       throw new Error('Supabase is not configured. Please set up your Supabase connection first.');
@@ -279,13 +332,18 @@ export const useEvents = () => {
       // First, verify the password by getting the event
       const { data: eventData, error: eventError } = await supabase
         .from('events')
-        .select('id, access_password, title')
+        .select('id, access_password, title, status')
         .eq('id', eventId)
         .single();
 
       if (eventError) {
         console.log('Error fetching event for password verification:', eventError);
         throw new Error('Event not found');
+      }
+
+      // Check if event is cancelled
+      if (eventData.status === 'cancelled') {
+        throw new Error('This event has been cancelled and cannot be joined');
       }
 
       // Verify password
@@ -510,6 +568,7 @@ export const useEvents = () => {
     createEvent,
     getEventById,
     updateEventStatus,
+    cancelEvent,
     joinEvent,
     joinEventWithPassword,
     regenerateEventPassword,

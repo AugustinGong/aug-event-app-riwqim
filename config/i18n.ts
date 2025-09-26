@@ -29,6 +29,31 @@ i18n.defaultLocale = 'en';
 // Storage key for persisting language preference
 const LANGUAGE_STORAGE_KEY = 'user_language';
 
+// Language change listeners
+const languageChangeListeners: Array<() => void> = [];
+
+// Function to add language change listener
+export const addLanguageChangeListener = (listener: () => void) => {
+  languageChangeListeners.push(listener);
+  return () => {
+    const index = languageChangeListeners.indexOf(listener);
+    if (index > -1) {
+      languageChangeListeners.splice(index, 1);
+    }
+  };
+};
+
+// Function to notify all listeners about language change
+const notifyLanguageChange = () => {
+  languageChangeListeners.forEach(listener => {
+    try {
+      listener();
+    } catch (error) {
+      console.log('Error in language change listener:', error);
+    }
+  });
+};
+
 // Function to get stored language preference
 export const getStoredLanguage = async (): Promise<string | null> => {
   try {
@@ -44,6 +69,8 @@ export const storeLanguage = async (language: string): Promise<void> => {
   try {
     await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, language);
     i18n.locale = language;
+    // Notify all listeners about the language change
+    notifyLanguageChange();
   } catch (error) {
     console.log('Error storing language:', error);
   }

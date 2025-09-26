@@ -23,23 +23,7 @@ export default function EventDetailScreen() {
   const { events, getEventById, updateEventStatus } = useEvents();
   const { sendNotification } = useNotifications();
   
-  // Redirect to login if not authenticated
-  if (!isLoading && !isAuthenticated) {
-    console.log('User not authenticated, redirecting to login');
-    return <Redirect href="/" />;
-  }
-
-  // Show loading if still checking authentication
-  if (isLoading) {
-    return (
-      <SafeAreaView style={[commonStyles.container, commonStyles.centerContent]}>
-        <Text style={[commonStyles.subtitle]}>
-          {i18n.t('common.loading')}
-        </Text>
-      </SafeAreaView>
-    );
-  }
-
+  // Initialize all state hooks at the top level
   const [activeTab, setActiveTab] = useState<TabType>('menu');
   const [event, setEvent] = useState<Event | null>(null);
 
@@ -65,11 +49,28 @@ export default function EventDetailScreen() {
       Alert.alert(i18n.t('common.error'), 'Failed to load event');
       router.back();
     }
-  }, [id, events, getEventById]);
+  }, [id, events, getEventById, router]);
 
   useEffect(() => {
     loadEventData();
   }, [loadEventData]);
+
+  // Redirect to login if not authenticated
+  if (!isLoading && !isAuthenticated) {
+    console.log('User not authenticated, redirecting to login');
+    return <Redirect href="/" />;
+  }
+
+  // Show loading if still checking authentication
+  if (isLoading) {
+    return (
+      <SafeAreaView style={[commonStyles.container, commonStyles.centerContent]}>
+        <Text style={[commonStyles.subtitle]}>
+          {i18n.t('common.loading')}
+        </Text>
+      </SafeAreaView>
+    );
+  }
 
   if (!event || !user) {
     return (

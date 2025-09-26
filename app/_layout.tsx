@@ -59,7 +59,7 @@ export default function RootLayout() {
         router.replace('/home');
       }
     }
-  }, [isAuthenticated, segments, isReady, isLoading]);
+  }, [isAuthenticated, segments, isReady, isLoading, router]);
 
   if (!isReady || isLoading) {
     return (

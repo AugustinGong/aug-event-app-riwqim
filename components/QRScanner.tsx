@@ -38,7 +38,7 @@ export default function QRScanner({ onBarCodeScanned, onCancel }: QRScannerProps
     };
 
     loadBarCodeScanner();
-  }, [onClose]);
+  }, [onCancel]);
 
   const handleBarCodeScanned = ({ type, data }: { type: string; data: string }) => {
     setScanned(true);

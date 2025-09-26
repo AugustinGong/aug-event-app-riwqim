@@ -20,6 +20,20 @@ export default function ScanQRScreen() {
   const [scanning, setScanning] = useState(false);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        // Dynamically import the barcode scanner permissions
+        const { BarCodeScanner } = await import('expo-barcode-scanner');
+        const { status } = await BarCodeScanner.requestPermissionsAsync();
+        setHasPermission(status === 'granted');
+      } catch (error) {
+        console.log('BarCodeScanner not available:', error);
+        setHasPermission(false);
+      }
+    })();
+  }, []);
+
   // Redirect to login if not authenticated
   if (!isLoading && !isAuthenticated) {
     console.log('User not authenticated, redirecting to login');
@@ -36,20 +50,6 @@ export default function ScanQRScreen() {
       </SafeAreaView>
     );
   }
-
-  useEffect(() => {
-    (async () => {
-      try {
-        // Dynamically import the barcode scanner permissions
-        const { BarCodeScanner } = await import('expo-barcode-scanner');
-        const { status } = await BarCodeScanner.requestPermissionsAsync();
-        setHasPermission(status === 'granted');
-      } catch (error) {
-        console.log('BarCodeScanner not available:', error);
-        setHasPermission(false);
-      }
-    })();
-  }, []);
 
   const handleBarCodeScanned = async ({ data }: { data: string }) => {
     setScanning(false);

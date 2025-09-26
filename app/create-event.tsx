@@ -17,6 +17,15 @@ export default function CreateEventScreen() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { createEvent } = useEvents();
   
+  // Initialize all state hooks at the top level
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [location, setLocation] = useState('');
+  const [date, setDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [courses, setCourses] = useState<MenuCourse[]>([]);
+  const [loading, setLoading] = useState(false);
+
   // Redirect to login if not authenticated
   if (!isLoading && !isAuthenticated) {
     console.log('User not authenticated, redirecting to login');
@@ -33,14 +42,6 @@ export default function CreateEventScreen() {
       </SafeAreaView>
     );
   }
-
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [location, setLocation] = useState('');
-  const [date, setDate] = useState(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [courses, setCourses] = useState<MenuCourse[]>([]);
-  const [loading, setLoading] = useState(false);
 
   const courseTypes = [
     { type: 'appetizer' as const, name: i18n.t('event.courses.appetizer'), icon: 'utensils' },
@@ -72,6 +73,10 @@ export default function CreateEventScreen() {
   };
 
   const handleCreateEvent = async () => {
+    console.log('Starting event creation...');
+    console.log('Current user:', user?.id, user?.email);
+    console.log('Is authenticated:', isAuthenticated);
+
     if (!title.trim()) {
       Alert.alert(i18n.t('common.error'), 'Please enter an event title');
       return;
@@ -96,6 +101,14 @@ export default function CreateEventScreen() {
 
     setLoading(true);
     try {
+      console.log('Calling createEvent with data:', {
+        title: title.trim(),
+        description: description.trim(),
+        location: location.trim(),
+        date,
+        menuCount: courses.length,
+      });
+
       const result = await createEvent({
         title: title.trim(),
         description: description.trim(),
@@ -103,6 +116,8 @@ export default function CreateEventScreen() {
         date,
         menu: courses,
       });
+
+      console.log('Create event result:', result);
 
       if (result.success && result.event) {
         Alert.alert(
@@ -116,11 +131,12 @@ export default function CreateEventScreen() {
           ]
         );
       } else {
+        console.log('Event creation failed:', result.error);
         Alert.alert(i18n.t('common.error'), result.error || 'Failed to create event');
       }
     } catch (error: any) {
       console.log('Create event error:', error);
-      Alert.alert(i18n.t('common.error'), 'Failed to create event');
+      Alert.alert(i18n.t('common.error'), error.message || 'Failed to create event');
     } finally {
       setLoading(false);
     }
@@ -152,6 +168,18 @@ export default function CreateEventScreen() {
             contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100 }}
             keyboardShouldPersistTaps="handled"
           >
+            {/* Debug info */}
+            <View style={[commonStyles.card, { marginBottom: 20, backgroundColor: colors.cardBackground }]}>
+              <Text style={[commonStyles.textSecondary, { fontSize: 12 }]}>
+                Debug: User ID: {user?.id || 'Not found'}
+              </Text>
+              <Text style={[commonStyles.textSecondary, { fontSize: 12 }]}>
+                Email: {user?.email || 'Not found'}
+              </Text>
+              <Text style={[commonStyles.textSecondary, { fontSize: 12 }]}>
+                Authenticated: {isAuthenticated ? 'Yes' : 'No'}
+              </Text>
+            </View>
             <View style={[commonStyles.card, { marginBottom: 20 }]}>
               <Text style={[commonStyles.sectionTitle, { marginBottom: 20 }]}>
                 {i18n.t('createEvent.eventDetails')}

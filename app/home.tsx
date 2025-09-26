@@ -19,6 +19,17 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
 
+  useEffect(() => {
+    // Show welcome message for new sessions
+    if (user) {
+      const timer = setTimeout(() => {
+        setShowWelcome(true);
+        setTimeout(() => setShowWelcome(false), 3000);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [user]);
+
   // Redirect to login if not authenticated
   if (!isLoading && !isAuthenticated) {
     console.log('User not authenticated, redirecting to login');
@@ -35,17 +46,6 @@ export default function HomeScreen() {
       </SafeAreaView>
     );
   }
-
-  useEffect(() => {
-    // Show welcome message for new sessions
-    if (user) {
-      const timer = setTimeout(() => {
-        setShowWelcome(true);
-        setTimeout(() => setShowWelcome(false), 3000);
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [user]);
 
   const handleRefresh = async () => {
     setRefreshing(true);

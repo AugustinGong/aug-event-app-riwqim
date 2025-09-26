@@ -24,7 +24,14 @@ export const useEvents = () => {
         .from('events')
         .select(`
           *,
-          organizer:users!events_organizer_id_fkey(*)
+          organizer:users!events_organizer_id_fkey(*),
+          event_participants(
+            user_id,
+            role,
+            joined_at,
+            user:users(*)
+          ),
+          menu_courses(*)
         `)
         .order('created_at', { ascending: false });
 
@@ -45,8 +52,14 @@ export const useEvents = () => {
         status: event.status || 'upcoming',
         qrCode: event.qr_code,
         isLive: event.is_live || false,
-        menu: event.menu || [],
-        participants: event.participants || [],
+        menu: (event.menu_courses || []).map((course: any) => ({
+          id: course.id,
+          name: course.name,
+          type: course.type,
+          description: course.description,
+          isServed: course.is_served,
+        })),
+        participants: (event.event_participants || []).map((participant: any) => participant.user),
         createdAt: new Date(event.created_at),
         expiresAt: event.expires_at ? new Date(event.expires_at) : undefined,
       }));
@@ -81,8 +94,11 @@ export const useEvents = () => {
       // Get current user from auth
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) {
-        return { success: false, error: 'User not authenticated' };
+        console.log('Authentication error:', authError);
+        return { success: false, error: 'User not authenticated. Please log in again.' };
       }
+
+      console.log('Authenticated user:', user.id);
 
       // Generate QR code data
       const qrCodeData = `aug-event://${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -108,6 +124,9 @@ export const useEvents = () => {
         return { success: false, error: error.message };
       }
 
+      console.log('Event created successfully:', data.id);
+      console.log('Event data:', data);
+
       // Create menu courses
       if (eventData.menu.length > 0) {
         const { error: menuError } = await supabase
@@ -125,10 +144,10 @@ export const useEvents = () => {
         if (menuError) {
           console.log('Error creating menu courses:', menuError);
           // Don't fail the whole operation for menu course errors
+        } else {
+          console.log('Menu courses created successfully');
         }
       }
-
-      console.log('Event created successfully:', data.id);
       
       // Reload events to get the updated list
       await loadEvents();
@@ -153,7 +172,14 @@ export const useEvents = () => {
         .from('events')
         .select(`
           *,
-          organizer:users!events_organizer_id_fkey(*)
+          organizer:users!events_organizer_id_fkey(*),
+          event_participants(
+            user_id,
+            role,
+            joined_at,
+            user:users(*)
+          ),
+          menu_courses(*)
         `)
         .eq('id', id)
         .single();
@@ -174,8 +200,14 @@ export const useEvents = () => {
         status: data.status || 'upcoming',
         qrCode: data.qr_code,
         isLive: data.is_live || false,
-        menu: data.menu || [],
-        participants: data.participants || [],
+        menu: (data.menu_courses || []).map((course: any) => ({
+          id: course.id,
+          name: course.name,
+          type: course.type,
+          description: course.description,
+          isServed: course.is_served,
+        })),
+        participants: (data.event_participants || []).map((participant: any) => participant.user),
         createdAt: new Date(data.created_at),
         expiresAt: data.expires_at ? new Date(data.expires_at) : undefined,
       };
@@ -213,41 +245,50 @@ export const useEvents = () => {
     }
   };
 
-  const joinEvent = async (eventId: string, userId: string) => {
+  const joinEvent = async (eventId: string, userId?: string) => {
     if (!isSupabaseConfigured) {
       throw new Error('Supabase is not configured. Please set up your Supabase connection first.');
     }
 
     try {
-      console.log('Joining event:', eventId, userId);
+      console.log('Joining event:', eventId);
 
-      // First get the current event
-      const { data: event, error: fetchError } = await supabase
-        .from('events')
-        .select('participants')
-        .eq('id', eventId)
-        .single();
-
-      if (fetchError) {
-        console.log('Error fetching event:', fetchError);
-        throw fetchError;
+      // Get current user from auth if userId not provided
+      let currentUserId = userId;
+      if (!currentUserId) {
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user) {
+          throw new Error('User not authenticated');
+        }
+        currentUserId = user.id;
       }
 
-      const participants = event.participants || [];
-      
       // Check if user is already a participant
-      if (participants.includes(userId)) {
+      const { data: existingParticipant, error: checkError } = await supabase
+        .from('event_participants')
+        .select('id')
+        .eq('event_id', eventId)
+        .eq('user_id', currentUserId)
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.log('Error checking participant:', checkError);
+        throw checkError;
+      }
+
+      if (existingParticipant) {
         console.log('User already joined this event');
         return;
       }
 
-      // Add user to participants
-      const updatedParticipants = [...participants, userId];
-
+      // Add user as participant with 'guest' role
       const { error } = await supabase
-        .from('events')
-        .update({ participants: updatedParticipants })
-        .eq('id', eventId);
+        .from('event_participants')
+        .insert([{
+          event_id: eventId,
+          user_id: currentUserId,
+          role: 'guest',
+        }]);
 
       if (error) {
         console.log('Error joining event:', error);
@@ -264,6 +305,34 @@ export const useEvents = () => {
     }
   };
 
+  const markCourseServed = async (courseId: string) => {
+    if (!isSupabaseConfigured) {
+      throw new Error('Supabase is not configured. Please set up your Supabase connection first.');
+    }
+
+    try {
+      console.log('Marking course as served:', courseId);
+
+      const { error } = await supabase
+        .from('menu_courses')
+        .update({ is_served: true })
+        .eq('id', courseId);
+
+      if (error) {
+        console.log('Error marking course as served:', error);
+        throw error;
+      }
+
+      console.log('Course marked as served successfully');
+      
+      // Reload events to get the updated list
+      await loadEvents();
+    } catch (error: any) {
+      console.log('Error marking course as served:', error);
+      throw error;
+    }
+  };
+
   return {
     events,
     loading,
@@ -273,5 +342,6 @@ export const useEvents = () => {
     getEventById,
     updateEventStatus,
     joinEvent,
+    markCourseServed,
   };
 };

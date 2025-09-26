@@ -37,7 +37,16 @@ export default function AuthForm({ onSuccess }: AuthFormProps) {
       }
 
       if (result.success) {
-        onSuccess();
+        if (result.message) {
+          // Show email verification message for registration
+          Alert.alert(
+            'Registration Successful', 
+            result.message,
+            [{ text: 'OK', onPress: () => onSuccess() }]
+          );
+        } else {
+          onSuccess();
+        }
       } else {
         Alert.alert('Error', result.error || 'Authentication failed');
       }

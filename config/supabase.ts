@@ -2,9 +2,9 @@
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// These will be automatically populated when you connect to Supabase
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+// Supabase configuration - now connected!
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://jzpwseajbygpvicipkla.supabase.co';
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp6cHdzZWFqYnlncHZpY2lwa2xhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzY0MjQsImV4cCI6MjA3NDQ1MjQyNH0.rgBycBIwVDNs3afgvJ93WMZfp_bDubaDtGCzmXUnX4Y';
 
 // Check if Supabase is properly configured
 export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey && supabaseUrl !== '' && supabaseAnonKey !== '');
@@ -56,6 +56,8 @@ export const supabase = isSupabaseConfigured
 
 if (!isSupabaseConfigured) {
   console.warn('Supabase is not configured. Using mock client. Please set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY environment variables.');
+} else {
+  console.log('✅ Supabase is connected and ready!');
 }
 
 export default supabase;

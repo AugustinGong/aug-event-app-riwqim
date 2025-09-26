@@ -38,12 +38,9 @@ export const useNotifications = () => {
     });
 
     return () => {
-      if (notificationListener.current) {
-        notificationListener.current.remove();
-      }
-      if (responseListener.current) {
-        responseListener.current.remove();
-      }
+      // Clean up notification listeners using the correct .remove() method
+      notificationListener.current?.remove();
+      responseListener.current?.remove();
     };
   }, []);
 

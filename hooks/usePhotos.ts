@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../config/supabase';
 import { Photo, User } from '../types';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
+import { readAsStringAsync, downloadAsync, documentDirectory } from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
 import { Alert, Platform } from 'react-native';
 import i18n from '../config/i18n';
@@ -71,7 +71,7 @@ export const usePhotos = () => {
       const fileName = `${eventId}/${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
       
       // Read the file as base64
-      const base64 = await FileSystem.readAsStringAsync(imageUri, {
+      const base64 = await readAsStringAsync(imageUri, {
         encoding: 'base64',
       });
 
@@ -152,9 +152,9 @@ export const usePhotos = () => {
 
       // Download the image
       const fileName = `AUG-Event-${photo.id}.jpg`;
-      const downloadPath = `${FileSystem.documentDirectory}${fileName}`;
+      const downloadPath = (documentDirectory ?? '') + fileName;
 
-      const downloadResult = await FileSystem.downloadAsync(photo.url, downloadPath);
+      const downloadResult = await downloadAsync(photo.url, downloadPath);
       
       if (downloadResult.status !== 200) {
         throw new Error('Failed to download image');

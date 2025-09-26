@@ -9,6 +9,7 @@ import { commonStyles, colors, buttonStyles } from '../styles/commonStyles';
 import Icon from '../components/Icon';
 import i18n from '../config/i18n';
 import { Redirect } from 'expo-router';
+import { supabase, isSupabaseConfigured } from '../config/supabase';
 
 // Lazy load the QR scanner to handle native module availability
 const QRScanner = React.lazy(() => import('../components/QRScanner'));
@@ -16,7 +17,7 @@ const QRScanner = React.lazy(() => import('../components/QRScanner'));
 export default function ScanQRScreen() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading } = useAuth();
-  const { joinEvent } = useEvents();
+  const { joinEventWithPassword } = useEvents();
   const [scanning, setScanning] = useState(false);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
 
@@ -55,47 +56,161 @@ export default function ScanQRScreen() {
     setScanning(false);
     
     try {
-      // Extract event ID from QR code data
-      let eventId = data;
+      console.log('Scanned QR code data:', data);
       
-      // Handle different QR code formats
-      if (data.includes('aug-event://')) {
-        // Extract the event ID from the QR code
+      let eventId = '';
+      let password = '';
+      
+      // Handle new password-protected QR code format
+      if (data.includes('aug-event://') && data.includes('||')) {
         const parts = data.split('://')[1];
-        eventId = parts.split('-')[0]; // Get the timestamp part as event ID
+        const [timestampPart, passwordPart] = parts.split('||');
+        
+        // For new events, we need to find the event by QR code since we don't store timestamp as ID
+        // We'll search for the event by the full QR code
+        eventId = 'qr_lookup'; // Special flag to indicate QR code lookup
+        password = passwordPart;
+        
+        console.log('New format - Password:', password);
+      } else if (data.includes('aug-event://')) {
+        // Handle legacy format (without password)
+        const parts = data.split('://')[1];
+        eventId = parts.split('-')[0];
+        console.log('Legacy format - Event ID:', eventId);
       } else if (data.includes('event/')) {
         eventId = data.split('event/')[1];
       } else if (data.includes('eventId=')) {
         eventId = data.split('eventId=')[1];
+      } else {
+        // Assume the entire data is the event ID
+        eventId = data;
       }
       
-      console.log('Scanned event ID:', eventId);
-      
-      if (!eventId || !user) {
-        Alert.alert(i18n.t('common.error'), 'Invalid QR code or user not authenticated');
+      if (!user) {
+        Alert.alert(i18n.t('common.error'), 'User not authenticated');
         return;
       }
 
-      // Join the event
+      // Join the event with password verification
       try {
-        await joinEvent(eventId, user.id);
+        let result;
+        
+        if (eventId === 'qr_lookup' && password) {
+          // For new format, we need to find the event by QR code and verify password
+          const qrResult = await joinEventWithQRCode(data, user.id);
+          result = qrResult;
+          eventId = qrResult.eventId; // Update eventId for navigation
+        } else if (password) {
+          // Direct event ID with password
+          result = await joinEventWithPassword(eventId, password, user.id);
+        } else {
+          // Legacy format without password - this should show an error for new events
+          Alert.alert(
+            i18n.t('common.error'), 
+            'This QR code format is not supported. Please ask the organizer to generate a new QR code.'
+          );
+          return;
+        }
         
         Alert.alert(
           i18n.t('common.success'),
-          'Successfully joined the event!',
+          result.message || 'Successfully joined the event!',
           [
             {
               text: i18n.t('common.ok'),
-              onPress: () => router.push(`/event/${eventId}`),
+              onPress: () => {
+                // Navigate to the event
+                if (eventId && eventId !== 'qr_lookup') {
+                  router.push(`/event/${eventId}`);
+                } else {
+                  // Fallback to home
+                  router.push('/home');
+                }
+              },
             },
           ]
         );
       } catch (joinError: any) {
+        console.log('Join error:', joinError);
         Alert.alert(i18n.t('common.error'), joinError.message || 'Failed to join event');
       }
     } catch (error: any) {
       console.log('QR scan error:', error);
       Alert.alert(i18n.t('common.error'), 'Failed to process QR code');
+    }
+  };
+
+  // Helper function to join event by QR code lookup
+  const joinEventWithQRCode = async (qrCode: string, userId: string) => {
+    if (!isSupabaseConfigured) {
+      throw new Error('Supabase is not configured. Please set up your Supabase connection first.');
+    }
+
+    try {
+      // Extract password from QR code
+      const parts = qrCode.split('://')[1];
+      const [, password] = parts.split('||');
+      
+      if (!password) {
+        throw new Error('Invalid QR code format');
+      }
+
+      // Find event by QR code
+      const { data: eventData, error: eventError } = await supabase
+        .from('events')
+        .select('id, title, access_password')
+        .eq('qr_code', qrCode)
+        .single();
+
+      if (eventError) {
+        console.log('Error finding event by QR code:', eventError);
+        throw new Error('Event not found');
+      }
+
+      // Verify password
+      if (eventData.access_password !== password) {
+        throw new Error('Invalid access password');
+      }
+
+      // Check if user is already a participant
+      const { data: existingParticipant, error: checkError } = await supabase
+        .from('event_participants')
+        .select('id')
+        .eq('event_id', eventData.id)
+        .eq('user_id', userId)
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.log('Error checking participant:', checkError);
+        throw checkError;
+      }
+
+      if (existingParticipant) {
+        return { success: true, message: 'Already joined this event', eventId: eventData.id };
+      }
+
+      // Add user as participant
+      const { error: joinError } = await supabase
+        .from('event_participants')
+        .insert([{
+          event_id: eventData.id,
+          user_id: userId,
+          role: 'guest',
+        }]);
+
+      if (joinError) {
+        console.log('Error joining event:', joinError);
+        throw joinError;
+      }
+
+      return { 
+        success: true, 
+        message: `Successfully joined "${eventData.title}"!`,
+        eventId: eventData.id 
+      };
+    } catch (error: any) {
+      console.log('Error joining event with QR code:', error);
+      throw error;
     }
   };
 

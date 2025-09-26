@@ -252,7 +252,10 @@ export default function EventDetailScreen() {
             </Text>
             
             {isOrganizer ? (
-              <QRCodeGenerator event={event} />
+              <QRCodeGenerator 
+                event={event} 
+                onEventUpdate={(updatedEvent) => setEvent(updatedEvent)}
+              />
             ) : (
               <View style={[commonStyles.centerContent, { marginTop: 50 }]}>
                 <Icon name="qr-code" size={64} color={colors.textSecondary} />

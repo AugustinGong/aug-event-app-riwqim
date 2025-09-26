@@ -95,6 +95,29 @@ const getCallerInfo = (): string => {
   return '';
 };
 
+import * as Crypto from 'expo-crypto';
+
+export async function generateSecurePassword(length: number = 8): Promise<string> {
+  try {
+    // Generate random bytes
+    const randomBytes = await Crypto.getRandomBytesAsync(length);
+    
+    // Convert to alphanumeric string
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    
+    for (let i = 0; i < length; i++) {
+      result += chars.charAt(randomBytes[i] % chars.length);
+    }
+    
+    return result;
+  } catch (error) {
+    console.log('Error generating secure password:', error);
+    // Fallback to timestamp-based password
+    return Math.random().toString(36).substr(2, length).toUpperCase();
+  }
+}
+
 export const setupErrorLogging = () => {
   // Capture unhandled errors in web environment
   if (typeof window !== 'undefined') {

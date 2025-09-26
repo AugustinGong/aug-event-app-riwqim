@@ -2,6 +2,7 @@
 import { Event, MenuCourse, User } from '../types';
 import { useState, useEffect, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../config/supabase';
+import { generateSecurePassword } from '../utils/errorLogger';
 
 export const useEvents = () => {
   const [events, setEvents] = useState<Event[]>([]);
@@ -51,6 +52,7 @@ export const useEvents = () => {
         organizer: event.organizer,
         status: event.status || 'upcoming',
         qrCode: event.qr_code,
+        accessPassword: event.access_password,
         isLive: event.is_live || false,
         menu: (event.menu_courses || []).map((course: any) => ({
           id: course.id,
@@ -100,8 +102,13 @@ export const useEvents = () => {
 
       console.log('Authenticated user:', user.id);
 
-      // Generate QR code data
-      const qrCodeData = `aug-event://${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      // Generate unique password for event access
+      const accessPassword = await generateSecurePassword(8);
+      console.log('Generated access password:', accessPassword);
+
+      // Generate QR code data with event ID and password
+      const eventTimestamp = Date.now();
+      const qrCodeData = `aug-event://${eventTimestamp}||${accessPassword}`;
       
       const { data, error } = await supabase
         .from('events')
@@ -112,6 +119,7 @@ export const useEvents = () => {
           location: eventData.location,
           organizer_id: user.id,
           qr_code: qrCodeData,
+          access_password: accessPassword,
           status: 'upcoming',
           is_live: false,
           expires_at: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(), // 180 days from now
@@ -199,6 +207,7 @@ export const useEvents = () => {
         organizer: data.organizer,
         status: data.status || 'upcoming',
         qrCode: data.qr_code,
+        accessPassword: data.access_password,
         isLive: data.is_live || false,
         menu: (data.menu_courses || []).map((course: any) => ({
           id: course.id,
@@ -241,6 +250,88 @@ export const useEvents = () => {
       await loadEvents();
     } catch (error: any) {
       console.log('Error updating event status:', error);
+      throw error;
+    }
+  };
+
+  const joinEventWithPassword = async (eventId: string, password: string, userId?: string) => {
+    if (!isSupabaseConfigured) {
+      throw new Error('Supabase is not configured. Please set up your Supabase connection first.');
+    }
+
+    try {
+      console.log('Joining event with password verification:', eventId);
+
+      // Get current user from auth if userId not provided
+      let currentUserId = userId;
+      if (!currentUserId) {
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user) {
+          throw new Error('User not authenticated');
+        }
+        currentUserId = user.id;
+      }
+
+      // First, verify the password by getting the event
+      const { data: eventData, error: eventError } = await supabase
+        .from('events')
+        .select('id, access_password, title')
+        .eq('id', eventId)
+        .single();
+
+      if (eventError) {
+        console.log('Error fetching event for password verification:', eventError);
+        throw new Error('Event not found');
+      }
+
+      // Verify password
+      if (eventData.access_password !== password) {
+        console.log('Password verification failed');
+        throw new Error('Invalid access password');
+      }
+
+      console.log('Password verified successfully');
+
+      // Check if user is already a participant
+      const { data: existingParticipant, error: checkError } = await supabase
+        .from('event_participants')
+        .select('id')
+        .eq('event_id', eventId)
+        .eq('user_id', currentUserId)
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.log('Error checking participant:', checkError);
+        throw checkError;
+      }
+
+      if (existingParticipant) {
+        console.log('User already joined this event');
+        return { success: true, message: 'Already joined this event' };
+      }
+
+      // Add user as participant with 'guest' role
+      const { error } = await supabase
+        .from('event_participants')
+        .insert([{
+          event_id: eventId,
+          user_id: currentUserId,
+          role: 'guest',
+        }]);
+
+      if (error) {
+        console.log('Error joining event:', error);
+        throw error;
+      }
+
+      console.log('Successfully joined event');
+      
+      // Reload events to get the updated list
+      await loadEvents();
+      
+      return { success: true, message: `Successfully joined "${eventData.title}"!` };
+    } catch (error: any) {
+      console.log('Error joining event:', error);
       throw error;
     }
   };
@@ -333,6 +424,80 @@ export const useEvents = () => {
     }
   };
 
+  const regenerateEventPassword = async (eventId: string) => {
+    if (!isSupabaseConfigured) {
+      throw new Error('Supabase is not configured. Please set up your Supabase connection first.');
+    }
+
+    try {
+      console.log('Regenerating password for event:', eventId);
+
+      // Get current user from auth
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Verify user is the organizer
+      const { data: eventData, error: eventError } = await supabase
+        .from('events')
+        .select('organizer_id, qr_code')
+        .eq('id', eventId)
+        .single();
+
+      if (eventError) {
+        console.log('Error fetching event:', eventError);
+        throw new Error('Event not found');
+      }
+
+      if (eventData.organizer_id !== user.id) {
+        throw new Error('Only the event organizer can regenerate the password');
+      }
+
+      // Generate new password
+      const newPassword = await generateSecurePassword(8);
+      console.log('Generated new password:', newPassword);
+
+      // Extract the timestamp from the existing QR code
+      const existingQrCode = eventData.qr_code;
+      let timestamp = Date.now().toString();
+      
+      if (existingQrCode && existingQrCode.includes('aug-event://')) {
+        const parts = existingQrCode.split('://')[1];
+        if (parts && parts.includes('||')) {
+          timestamp = parts.split('||')[0];
+        }
+      }
+
+      // Generate new QR code with new password
+      const newQrCode = `aug-event://${timestamp}||${newPassword}`;
+
+      // Update the event with new password and QR code
+      const { error: updateError } = await supabase
+        .from('events')
+        .update({ 
+          access_password: newPassword,
+          qr_code: newQrCode
+        })
+        .eq('id', eventId);
+
+      if (updateError) {
+        console.log('Error updating event password:', updateError);
+        throw updateError;
+      }
+
+      console.log('Password regenerated successfully');
+      
+      // Reload events to get the updated list
+      await loadEvents();
+      
+      return { success: true, newPassword };
+    } catch (error: any) {
+      console.log('Error regenerating password:', error);
+      throw error;
+    }
+  };
+
   return {
     events,
     loading,
@@ -342,6 +507,8 @@ export const useEvents = () => {
     getEventById,
     updateEventStatus,
     joinEvent,
+    joinEventWithPassword,
+    regenerateEventPassword,
     markCourseServed,
   };
 };

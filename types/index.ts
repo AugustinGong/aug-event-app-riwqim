@@ -18,6 +18,7 @@ export interface Event {
   menu: MenuCourse[];
   participants: string[];
   qrCode: string;
+  accessPassword?: string;
   isLive: boolean;
   status?: 'upcoming' | 'active' | 'ended';
   createdAt: Date;

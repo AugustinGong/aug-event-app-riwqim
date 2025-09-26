@@ -107,6 +107,13 @@
     "notificationsDescription": "The organizer will send notifications when courses are ready",
     "qrCodeOrganizerOnly": "QR Code Access",
     "qrCodeDescription": "Only the organizer can view and share the QR code",
+    "accessPassword": "Access Password",
+    "passwordRequired": "Password required to join",
+    "regeneratePassword": "Regenerate Password",
+    "regeneratePasswordConfirm": "This will create a new password and QR code. The old QR code will no longer work. Continue?",
+    "passwordRegenerated": "Password Regenerated",
+    "newPasswordGenerated": "New password generated successfully",
+    "invalidPassword": "Invalid access password",
     "courses": {
       "appetizer": "Appetizer",
       "first": "First Course",

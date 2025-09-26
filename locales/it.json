@@ -107,6 +107,13 @@
     "notificationsDescription": "L'organizzatore invierà notifiche quando le portate sono pronte",
     "qrCodeOrganizerOnly": "Accesso Codice QR",
     "qrCodeDescription": "Solo l'organizzatore può visualizzare e condividere il codice QR",
+    "accessPassword": "Password di Accesso",
+    "passwordRequired": "Password richiesta per partecipare",
+    "regeneratePassword": "Rigenera Password",
+    "regeneratePasswordConfirm": "Questo creerà una nuova password e codice QR. Il vecchio codice QR non funzionerà più. Continuare?",
+    "passwordRegenerated": "Password Rigenerata",
+    "newPasswordGenerated": "Nuova password generata con successo",
+    "invalidPassword": "Password di accesso non valida",
     "courses": {
       "appetizer": "Antipasto",
       "first": "Primo Piatto",

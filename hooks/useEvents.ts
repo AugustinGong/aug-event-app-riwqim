@@ -1,5 +1,5 @@
 
-import { Event, MenuCourse, User, EventType } from '../types';
+import { Event, MenuCourse, User, EventType, LocationData } from '../types';
 import { useState, useEffect, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../config/supabase';
 import { generateSecurePassword } from '../utils/errorLogger';
@@ -48,6 +48,9 @@ export const useEvents = () => {
         description: event.description,
         date: new Date(event.date),
         location: event.location,
+        locationAddress: event.location_address,
+        latitude: event.latitude,
+        longitude: event.longitude,
         organizerId: event.organizer_id,
         organizer: event.organizer,
         status: event.status || 'upcoming',
@@ -85,6 +88,9 @@ export const useEvents = () => {
     description: string;
     date: Date;
     location: string;
+    locationAddress?: string;
+    latitude?: number;
+    longitude?: number;
     eventType: EventType;
     menu: MenuCourse[];
   }) => {
@@ -119,6 +125,9 @@ export const useEvents = () => {
           description: eventData.description,
           date: eventData.date.toISOString(),
           location: eventData.location,
+          location_address: eventData.locationAddress,
+          latitude: eventData.latitude,
+          longitude: eventData.longitude,
           event_type: eventData.eventType,
           organizer_id: user.id,
           qr_code: qrCodeData,
@@ -206,6 +215,9 @@ export const useEvents = () => {
         description: data.description,
         date: new Date(data.date),
         location: data.location,
+        locationAddress: data.location_address,
+        latitude: data.latitude,
+        longitude: data.longitude,
         organizerId: data.organizer_id,
         organizer: data.organizer,
         status: data.status || 'upcoming',

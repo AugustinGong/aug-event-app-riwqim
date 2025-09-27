@@ -3,12 +3,13 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useEvents } from '../hooks/useEvents';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, KeyboardAvoidingView, Platform, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import LanguageSelector from '../components/LanguageSelector';
+import LocationPicker from '../components/LocationPicker';
 import { useRouter } from 'expo-router';
 import { commonStyles, colors, buttonStyles } from '../styles/commonStyles';
 import i18n, { addLanguageChangeListener } from '../config/i18n';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState, useEffect } from 'react';
-import { MenuCourse, EventType, EventTypeOption } from '../types';
+import { MenuCourse, EventType, EventTypeOption, LocationData } from '../types';
 import Icon from '../components/Icon';
 import { Redirect } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
@@ -32,7 +33,7 @@ export default function CreateEventScreen() {
   // Form state
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [location, setLocation] = useState('');
+  const [locationData, setLocationData] = useState<LocationData | null>(null);
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [eventType, setEventType] = useState<EventType>('celebration');
@@ -97,14 +98,19 @@ export default function CreateEventScreen() {
     setMenu(newMenu);
   };
 
+  const handleLocationSelect = (location: LocationData) => {
+    console.log('Location selected:', location);
+    setLocationData(location);
+  };
+
   const handleCreateEvent = async () => {
     if (!title.trim()) {
       Alert.alert(i18n.t('common.error'), 'Please enter an event title');
       return;
     }
 
-    if (!location.trim()) {
-      Alert.alert(i18n.t('common.error'), 'Please enter a location');
+    if (!locationData || !locationData.address.trim()) {
+      Alert.alert(i18n.t('common.error'), 'Please select a location for the event');
       return;
     }
 
@@ -121,7 +127,10 @@ export default function CreateEventScreen() {
         title: title.trim(),
         description: description.trim(),
         date,
-        location: location.trim(),
+        location: locationData.address.trim(),
+        locationAddress: locationData.address.trim(),
+        latitude: locationData.latitude,
+        longitude: locationData.longitude,
         eventType,
         menu: validMenu,
       });
@@ -263,19 +272,22 @@ export default function CreateEventScreen() {
                 </View>
               </View>
 
-              {/* Location */}
+              {/* Location with Map Integration */}
               <View style={{ marginBottom: 20 }}>
                 <Text style={[commonStyles.label, { marginBottom: 8 }]}>
                   {i18n.t('createEvent.location')}
                 </Text>
-                <TextInput
-                  style={commonStyles.input}
+                <LocationPicker
+                  onLocationSelect={handleLocationSelect}
                   placeholder={i18n.t('createEvent.locationPlaceholder')}
-                  placeholderTextColor={colors.textSecondary}
-                  value={location}
-                  onChangeText={setLocation}
-                  maxLength={200}
                 />
+                {locationData && locationData.latitude && locationData.longitude && (
+                  <View style={[commonStyles.card, { marginTop: 10, backgroundColor: colors.success + '20' }]}>
+                    <Text style={[commonStyles.textSecondary, { fontSize: 12 }]}>
+                      ✓ Location coordinates saved: {locationData.latitude.toFixed(6)}, {locationData.longitude.toFixed(6)}
+                    </Text>
+                  </View>
+                )}
               </View>
 
               {/* Date & Time */}

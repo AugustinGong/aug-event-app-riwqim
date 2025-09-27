@@ -17,14 +17,22 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.augevent.app"
+      "bundleIdentifier": "com.augevent.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "AUG-Event needs location access to help you select event locations and find nearby events.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "AUG-Event needs location access to help you select event locations and find nearby events."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/39080b9e-5985-4ab4-8518-0188f6dbb943.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.augevent.app"
+      "package": "com.augevent.app",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/images/39080b9e-5985-4ab4-8518-0188f6dbb943.png",
@@ -32,6 +40,13 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow AUG-Event to use your location to help select event locations and find nearby events.",
+          "locationWhenInUsePermission": "Allow AUG-Event to use your location to help select event locations and find nearby events."
+        }
+      ],
       [
         "expo-notifications",
         {

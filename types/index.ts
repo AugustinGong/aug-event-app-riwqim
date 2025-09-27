@@ -7,12 +7,21 @@ export interface User {
   createdAt: Date;
 }
 
+export interface LocationData {
+  address: string;
+  latitude?: number;
+  longitude?: number;
+}
+
 export interface Event {
   id: string;
   title: string;
   description?: string;
   date: Date;
   location: string;
+  locationAddress?: string;
+  latitude?: number;
+  longitude?: number;
   organizerId: string;
   organizer: User;
   menu: MenuCourse[];
